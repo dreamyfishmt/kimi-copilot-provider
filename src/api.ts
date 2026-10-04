@@ -118,6 +118,7 @@ interface ChatOptions {
 }
 
 interface KimiStreamChunk {
+	usage?: unknown;
 	id: string;
 	created: number;
 	model: string;
@@ -245,11 +246,9 @@ export class KimiApiClient {
 				}
 
 				const { done, value } = await reader.read();
-				if (done) break;
-
-				buffer += decoder.decode(value, { stream: true });
+				buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
 				const lines = buffer.split("\n");
-				buffer = lines.pop() || "";
+				buffer = done ? "" : lines.pop() || "";
 
 				for (const line of lines) {
 					const trimmed = line.trim();
@@ -268,6 +267,7 @@ export class KimiApiClient {
 						console.warn("Malformed SSE chunk skipped:", data);
 					}
 				}
+				if (done) break;
 			}
 
 			if (
@@ -312,6 +312,9 @@ export class KimiApiClient {
 				? { type: "enabled", keep: "all" }
 				: { type: "disabled" },
 		};
+		if (stream) {
+			body.stream_options = { include_usage: true };
+		}
 
 		if (options?.topP !== undefined) {
 			body.top_p = options.topP;

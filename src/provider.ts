@@ -11,6 +11,7 @@ import { KIMI_MODELS, toLanguageModelChatInformation, getModelTokenBudget } from
 import { assistantToolCallThinkingPayload } from "./reasoning.js";
 import { accountId, ModelCatalog } from "./catalog.js";
 import type { Account } from "./usage.js";
+import { parseTokenUsage, type TokenUsage } from "./tokenUsage.js";
 
 // Compatibility fields used by the current VS Code model picker (non-public API).
 type KimiResponseOptions = vscode.ProvideLanguageModelChatResponseOptions & {
@@ -326,6 +327,7 @@ export class KimiChatProvider implements vscode.LanguageModelChatProvider {
 			);
 
 			const toolCallBuilders = new Map<number, ToolCallBuilder>();
+			let usage: TokenUsage | undefined;
 
 			const reportThinkingPart = (text: string): void => {
 				const thinkingPart = createThinkingPart(text);
@@ -336,8 +338,10 @@ export class KimiChatProvider implements vscode.LanguageModelChatProvider {
 
 			for await (const chunk of stream) {
 				if (token.isCancellationRequested) break;
+				// Usage is a cumulative snapshot, often in a final chunk with no choices.
+				usage = parseTokenUsage(chunk.usage) ?? usage;
 
-				for (const choice of chunk.choices) {
+				for (const choice of chunk.choices ?? []) {
 					const delta = choice.delta;
 
 					if (delta.reasoning_content) {
@@ -365,6 +369,18 @@ export class KimiChatProvider implements vscode.LanguageModelChatProvider {
 			}
 
 			emitToolCalls(progress, toolCallBuilders);
+			if (!token.isCancellationRequested) {
+				if (usage) {
+					// Copilot's extChatEndpoint consumes JSON DataParts with the internal
+					// MIME type "usage". This is not yet a public token-usage API.
+					progress.report(new vscode.LanguageModelDataPart(
+						new TextEncoder().encode(JSON.stringify(usage)), "usage",
+					));
+					this.log(`Token usage: input=${usage.prompt_tokens}, output=${usage.completion_tokens}, total=${usage.total_tokens}`);
+				} else {
+					this.log("Token usage unavailable: the response did not include valid usage counts.");
+				}
+			}
 		} catch (error) {
 			if (!(error instanceof KimiApiError)) throw error;
 			throw mapKimiApiError(error);

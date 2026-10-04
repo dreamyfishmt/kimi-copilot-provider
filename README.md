@@ -15,6 +15,7 @@ Resolve this dependency and verify normal installed-extension behavior before pu
 - Automatic model discovery, with account/endpoint-scoped caching and manual refresh.
 - Status bar showing five-hour and weekly account usage, refreshed every 60 seconds independently of chat.
 - Streaming text responses and Agent tool calls.
+- Server-reported input/output token usage forwarded to Copilot Chat.
 - Native thinking parts when the required VS Code API is available.
 - Image attachments, plus text/plain and JSON data attachments.
 - Configurable output token budget and reasoning effort.
@@ -84,6 +85,10 @@ maxInputTokens = contextWindow - configured maxOutputTokens
 With the default output budget of 32,768, the input budget is 229,376 for 256K models and 1,015,808 for 1M models. For smaller discovered contexts, the output reservation is capped below the context size to keep a positive input budget. If the caller requests a smaller output limit, the extension uses that smaller value; it never raises the request above the configured output budget.
 
 The output setting's allowed range is an extension policy, not a guarantee that every model accepts 65,536 output tokens. Token counting is approximate, so requests near the context limit can still exceed server limits.
+
+Actual request usage is separate from those estimates: streaming requests set `stream_options.include_usage`, and the final valid server usage snapshot supplies input (`prompt_tokens`), output (`completion_tokens`), and total counts. Cache and reasoning counts are retained when present; reasoning is not added again to the output total. Repeated usage snapshots are not summed. Missing or invalid usage is reported as unavailable in the **Kimi** output channel, without substituting estimated counts.
+
+Usage is forwarded as a `LanguageModelDataPart` with Copilot's internal `usage` MIME type, as consumed by its [extension endpoint implementation](https://github.com/microsoft/vscode/blob/main/extensions/copilot/src/platform/endpoint/vscode-node/extChatEndpoint.ts). This is not a stable public usage API, so native token display depends on the installed VS Code/Copilot version. The **Kimi** output channel also records the returned input/output/total counts. These per-request counts are independent of the account quota status bar.
 
 ## Settings
 
@@ -225,16 +230,16 @@ The [Release VSIX workflow](.github/workflows/release.yml) runs when a release t
 | `vX.Y.Z` | Stable release, marked Latest | `kimi-lm-provider-X.Y.Z-stable.vsix` |
 | `nightly-vX.Y.Z` | Prerelease, never marked Latest | `kimi-lm-provider-X.Y.Z-nightly.vsix`, marked as a prerelease package |
 
-The tag version must exactly match `package.json`. For example, with the current version `0.5.0`, publish either channel from the commit you want to release:
+The tag version must exactly match `package.json`. For example, with the current version `0.5.1`, publish either channel from the commit you want to release:
 
 ```sh
 # Stable
-git tag v0.5.0
-git push origin v0.5.0
+git tag v0.5.1
+git push origin v0.5.1
 
 # Nightly
-git tag nightly-v0.5.0
-git push origin nightly-v0.5.0
+git tag nightly-v0.5.1
+git push origin nightly-v0.5.1
 ```
 
 Commit the workflow and all intended source changes before creating a tag. Each new release needs a new tag; update `package.json` and `package-lock.json` together when changing the version. The workflow validates the version, installs dependencies with `npm ci`, compiles and runs tests, then packages the extension with a pinned version of `vsce`. A failed check prevents publication. Rerunning a successful tag workflow updates the existing release and replaces its VSIX asset.
