@@ -15,6 +15,11 @@ const vscode = {
         dispose() { this.listeners.clear(); }
     },
     StatusBarAlignment: { Right: 2 },
+    MarkdownString: class {
+        constructor(value = '', supportThemeIcons = false) { this.value = value; this.supportThemeIcons = supportThemeIcons; }
+        appendMarkdown(value) { this.value += value; return this; }
+        appendText(value) { this.value += value.replace(/[\\`*_{}[\]()#+\-.!]/g, '\\$&'); return this; }
+    },
     window: { createStatusBarItem: () => item = {
         visible: false, show() { this.visible = true; }, hide() { this.visible = false; }, dispose() { this.visible = false; },
     } },
@@ -201,16 +206,27 @@ test('status bar polls every minute, retains stale data, stops when hidden and d
         usage.configure(account, true);
         await usage.refresh();
         assert.equal(item.visible, true);
-        assert.match(item.text, /5h 32%.*周 68%/);
-        assert.match(item.tooltip, /已使用比例/);
+        assert.match(item.text, /5h 32%.*7d 68%/);
+        assert.ok(item.tooltip instanceof vscode.MarkdownString);
+        assert.equal(item.tooltip.supportThemeIcons, true);
+        assert.deepEqual(item.tooltip.isTrusted, { enabledCommands: ['kimi.refreshUsage'] });
+        assert.match(item.tooltip.value, /Account quota · percentage used/);
+        assert.match(item.tooltip.value, /\*\*5-hour limit · 32% used\*\*/);
+        assert.match(item.tooltip.value, /`■■■□□□□□□□`/);
+        assert.match(item.tooltip.value, /`■■■■■■■□□□`/);
+        assert.match(item.tooltip.value, /command:kimi.refreshUsage/);
+        assert.match(item.tooltip.value, /https:\/\/www.kimi.com\/code\/console/);
         t.mock.timers.tick(59_999); await tick();
         assert.equal(requests, 1);
         t.mock.timers.tick(1); await tick();
         assert.equal(requests, 2);
         global.fetch = async () => { throw new Error('sensitive response should not be printed'); };
         await usage.refresh();
-        assert.match(item.text, /32%.*未更新/);
-        assert.ok(!item.tooltip.includes('sensitive'));
+        assert.match(item.text, /32%.*\$\(warning\)/);
+        assert.match(item.tooltip.value, /\*\*Stale · Refresh failed\*\*/);
+        assert.ok(!item.tooltip.value.includes('sensitive'));
+        assert.match(item.accessibilityInformation.label, /5-hour limit: 32% used/);
+        assert.ok(!/[■□]|command:|\$\(/.test(item.accessibilityInformation.label));
         let finish;
         global.fetch = () => new Promise(resolve => { finish = resolve; });
         const flight = usage.refresh();
@@ -221,6 +237,64 @@ test('status bar polls every minute, retains stale data, stops when hidden and d
         const before = requests;
         t.mock.timers.tick(120_000); await tick();
         assert.equal(requests, before);
+    } finally { usage.dispose(); }
+});
+
+test('usage card distinguishes loading, missing windows, zero usage and over-limit usage', async () => {
+    let finish;
+    global.fetch = () => new Promise(resolve => { finish = resolve; });
+    const usage = new UsageStatusBar(() => {});
+    try {
+        usage.configure(account, true);
+        assert.match(item.text, /\$\(sync~spin\).*Loading usage/);
+        assert.match(item.tooltip.value, /No successful update yet/);
+        assert.match(item.tooltip.value, /Refreshing/);
+        assert.ok(!item.tooltip.value.includes('`□□□□□□□□□□`'));
+        finish(json({ usages: { limit_5h: { used_ratio: 0 } } }));
+        await usage.refresh();
+        assert.match(item.text, /5h 0%.*7d —/);
+        assert.match(item.tooltip.value, /`□□□□□□□□□□`/);
+        assert.match(item.tooltip.value, /\*\*Weekly limit · — · Unavailable\*\*/);
+        assert.ok(!item.tooltip.value.includes('Refreshing'));
+        global.fetch = async () => json({ usages: { limit_5h: { used_ratio: 1.25 }, limit_7d: { used_ratio: 0.99 } } });
+        await usage.refresh();
+        assert.match(item.text, /5h 125%.*7d 99%/);
+        assert.match(item.tooltip.value, /`■■■■■■■■■■`/);
+        assert.match(item.tooltip.value, /`■■■■■■■■■□`/);
+        assert.ok(!item.tooltip.value.includes('Stale'));
+    } finally { usage.dispose(); }
+});
+
+test('usage card shows reset countdowns, local timestamps and elapsed update age', async t => {
+    const now = Date.parse('2026-10-04T12:00:00Z');
+    t.mock.timers.enable({ apis: ['Date'], now });
+    global.fetch = async () => json({ usages: {
+        limit_5h: { used_ratio: 0.32, reset_time: new Date(now + (2 * 60 + 14) * 60_000).toISOString() },
+        limit_7d: { used_ratio: 0.68, reset_time: new Date(now + (3 * 24 + 6) * 3600_000).toISOString() },
+    } });
+    const usage = new UsageStatusBar(() => {});
+    try {
+        usage.configure(account, true);
+        await usage.refresh();
+        assert.match(item.tooltip.value, /Resets in 2h 14m/);
+        assert.match(item.tooltip.value, /Resets in 3d 6h/);
+        assert.match(item.tooltip.value, /Updated just now · Every 60s/);
+        assert.ok(item.accessibilityInformation.label.includes(
+            new Date(now).toLocaleString('en-US', { timeZoneName: 'short' })));
+        t.mock.timers.tick(120_000);
+        global.fetch = async () => { throw new Error('offline'); };
+        await usage.refresh();
+        assert.match(item.tooltip.value, /Updated 2m ago/);
+        assert.match(item.tooltip.value, /Resets in 2h 12m/);
+        global.fetch = async () => json({ usages: {
+            limit_5h: { used_ratio: 0.32, reset_time: new Date(Date.now() + 30_000).toISOString() },
+            limit_7d: { used_ratio: 0.68, reset_time: new Date(now - 1).toISOString() },
+        } });
+        await usage.refresh();
+        assert.match(item.tooltip.value, /Resets in <1m/);
+        assert.match(item.tooltip.value, /Reset time reached · awaiting update/);
+        assert.ok(!item.tooltip.value.includes('Stale'));
+        assert.ok(!item.text.includes('$(warning)'));
     } finally { usage.dispose(); }
 });
 
@@ -237,7 +311,7 @@ test('changing accounts aborts old quota requests and prevents stale results', a
         await usage.refresh();
         assert.equal(signal.aborted, true);
         finish(json(usagePayload)); await oldFlight;
-        assert.match(item.text, /5h 5%.*周 —/);
+        assert.match(item.text, /5h 5%.*7d —/);
         usage.configure(undefined, true);
         assert.equal(item.visible, false);
     } finally { usage.dispose(); }
@@ -260,7 +334,7 @@ test('quota failure and pending requests never block chat requests', async () =>
         await provider.provideLanguageModelChatResponse(models[0], [], {}, {report(){}}, token);
         assert.equal(chatRequests, 1);
         failUsage(new Error('offline')); await usage.refresh();
-        assert.match(item.text, /用量不可用/);
+        assert.match(item.text, /Usage unavailable/);
         await provider.provideLanguageModelChatResponse(models[0], [], {}, {report(){}}, token);
         assert.equal(chatRequests, 2);
     } finally { listener.dispose(); usage.dispose(); provider.dispose(); }

@@ -2,7 +2,7 @@
 
 Use your Kimi Code subscription in VS Code Chat and Agent mode through a custom language model provider. The extension connects directly to the Kimi Code API using your own API key.
 
-This is an independent fork of [zelosleone/kimi-lm-copilot-provider](https://github.com/zelosleone/kimi-lm-copilot-provider), maintained under the extension ID `dreamyfishmt.kimi-lm-provider`. It is not an official Kimi or GitHub extension.
+Extension ID: `dreamyfishmt.kimi-lm-provider`. This is not an official Kimi or GitHub extension.
 
 ## Current release status
 
@@ -162,9 +162,9 @@ For a fuller check, start a new chat with an entitled model, verify a text respo
 
 ## Account usage status bar
 
-After VS Code supplies a configured provider key, the status bar shows `Kimi · 5h 32% · 周 68%`. Both values mean **used percentage of the account subscription quota**, not tokens consumed by the selected model or current chat. It stays visible when another chat model is selected. Hover for reset times (local timezone), last successful update, and any query error. Click to refresh or open the Kimi console.
+After VS Code supplies a configured provider key, the status bar shows a usage icon followed by `Kimi · 5h 32% · 7d 68%`. Both values mean **used percentage of the account subscription quota**, not tokens consumed by the selected model or current chat. It stays visible when another chat model is selected. The English hover card groups each quota window with its used percentage, a ten-segment progress indicator, and a reset countdown with the local reset date/time and timezone. Countdown and update-age labels are recomputed on refresh, rather than ticking continuously. The footer shows the last successful update and provides **Refresh** and **Open Console** links. Clicking the status bar opens the same actions in a menu.
 
-Usage is read from `<baseUrl>/usages` immediately and every 60 seconds, with a separate 10-second timeout and no overlapping queries. It never blocks or cancels chat. Failed refreshes keep previous values with a stale indicator; without a successful result, the item says usage is unavailable. Missing windows display `—`, never a fabricated zero. Failures go to the **Kimi** output channel without automatic error popups.
+Usage is read from `<baseUrl>/usages` immediately and every 60 seconds, with a separate 10-second timeout and no overlapping queries. It never blocks or cancels chat. A spinning icon indicates refreshes. Failed refreshes keep previous values with a warning icon and **Stale** label in the hover; without a successful result, the item says usage is unavailable. Missing windows display `—`, never a fabricated zero. The progress indicator is bounded to ten segments; reported percentages above 100% remain visible, and a passed reset timestamp is labeled as awaiting an update. Failures go to the **Kimi** output channel without automatic error popups.
 
 Changing credentials/endpoints clears quota data and cancels old quota requests. Hiding the item stops polling. On reload it waits for VS Code to supply credentials; it does not read `.env` or persist a second copy of the API key. A provider callback explicitly clearing its key hides the item; an unconfigured vendor scan is ignored. With multiple Kimi provider configurations, the status bar follows the most recently prepared configuration. Custom and Moonshot endpoints may not implement this subscription quota API; that does not affect chat.
 
@@ -230,16 +230,16 @@ The [Release VSIX workflow](.github/workflows/release.yml) runs when a release t
 | `vX.Y.Z` | Stable release, marked Latest | `kimi-lm-provider-X.Y.Z-stable.vsix` |
 | `nightly-vX.Y.Z` | Prerelease, never marked Latest | `kimi-lm-provider-X.Y.Z-nightly.vsix`, marked as a prerelease package |
 
-The tag version must exactly match `package.json`. For example, with the current version `0.5.1`, publish either channel from the commit you want to release:
+The tag version must exactly match `package.json`. For example, with the current version `0.5.2`, publish either channel from the commit you want to release:
 
 ```sh
 # Stable
-git tag v0.5.1
-git push origin v0.5.1
+git tag v0.5.2
+git push origin v0.5.2
 
 # Nightly
-git tag nightly-v0.5.1
-git push origin nightly-v0.5.1
+git tag nightly-v0.5.2
+git push origin nightly-v0.5.2
 ```
 
 Commit the workflow and all intended source changes before creating a tag. Each new release needs a new tag; update `package.json` and `package-lock.json` together when changing the version. The workflow validates the version, installs dependencies with `npm ci`, compiles and runs tests, then packages the extension with a pinned version of `vsce`. A failed check prevents publication. Rerunning a successful tag workflow updates the existing release and replaces its VSIX asset.
@@ -248,4 +248,6 @@ The workflow uses GitHub's built-in `GITHUB_TOKEN` with `contents: write`; no pe
 
 ## License and acknowledgements
 
-MIT. See [LICENSE](LICENSE). This fork retains the original project's license and credits [zelosleone/kimi-lm-copilot-provider](https://github.com/zelosleone/kimi-lm-copilot-provider).
+MIT. See [LICENSE](LICENSE).
+
+Thanks to [zelosleone/kimi-lm-copilot-provider](https://github.com/zelosleone/kimi-lm-copilot-provider) for the original project.

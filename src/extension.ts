@@ -104,9 +104,12 @@ export function activate(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand("kimi.refreshModels", () => provider.refreshModels()),
 		vscode.commands.registerCommand("kimi.refreshUsage", () => usage.refresh()),
 		vscode.commands.registerCommand("kimi.usageActions", async () => {
-			const action = await vscode.window.showQuickPick(["刷新用量", "打开 Kimi 控制台"], { title: "Kimi Code 用量" });
-			if (action === "刷新用量") await usage.refresh();
-			if (action === "打开 Kimi 控制台") {
+			const action = await vscode.window.showQuickPick([
+				{ label: "$(refresh) Refresh Usage", action: "refresh" },
+				{ label: "$(link-external) Open Kimi Console", action: "console" },
+			], { title: "Kimi Code Usage" });
+			if (action?.action === "refresh") await usage.refresh();
+			if (action?.action === "console") {
 				await vscode.env.openExternal(vscode.Uri.parse("https://www.kimi.com/code/console"));
 			}
 		}),

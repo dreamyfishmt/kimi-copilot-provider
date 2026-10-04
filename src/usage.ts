@@ -24,6 +24,30 @@ export function parseUsage(payload: unknown): Usage {
     return result;
 }
 
+function formatElapsed(milliseconds: number): string {
+    const minutes = Math.floor(Math.max(0, milliseconds) / 60_000);
+    const days = Math.floor(minutes / 1440);
+    const hours = Math.floor(minutes % 1440 / 60);
+    if (days) return `${days}d${hours ? ` ${hours}h` : ""}`;
+    if (hours) return `${hours}h${minutes % 60 ? ` ${minutes % 60}m` : ""}`;
+    return `${minutes}m`;
+}
+
+function formatReset(resetAt: string, now: number): string {
+    const remaining = Date.parse(resetAt) - now;
+    if (remaining <= 0) return "Reset time reached · awaiting update";
+    return remaining < 60_000 ? "Resets in <1m" : `Resets in ${formatElapsed(remaining)}`;
+}
+
+function formatLocalTime(date: Date): string {
+    return date.toLocaleString("en-US", { timeZoneName: "short" });
+}
+
+function usageBar(ratio: number): string {
+    const filled = Math.min(ratio < 1 ? 9 : 10, Math.round(Math.max(0, ratio) * 10));
+    return "■".repeat(filled) + "□".repeat(10 - filled);
+}
+
 export class UsageStatusBar implements vscode.Disposable {
     private readonly item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 90);
     private account: Account | undefined;
@@ -38,7 +62,7 @@ export class UsageStatusBar implements vscode.Disposable {
     private disposed = false;
 
     constructor(private readonly log: (message: string) => void) {
-        this.item.name = "Kimi Code 用量";
+        this.item.name = "Kimi Code Usage";
         this.item.command = "kimi.usageActions";
     }
 
@@ -87,21 +111,60 @@ export class UsageStatusBar implements vscode.Disposable {
     }
 
     private render(loading: boolean): void {
+        const now = Date.now();
         const percent = (entry?: UsageEntry) => entry ? `${Math.round(entry.usedRatio * 100)}%` : "—";
+        const icon = loading ? "$(sync~spin)" : "$(dashboard)";
         this.item.text = this.usage
-            ? `Kimi · 5h ${percent(this.usage.fiveHour)} · 周 ${percent(this.usage.weekly)}${this.error ? " · 未更新" : ""}`
-            : loading ? "$(sync~spin) Kimi · 查询用量" : "Kimi · 用量不可用";
-        const lines = ["Kimi Code 账号订阅额度（已使用比例）"];
-        for (const [label, entry] of [["5 小时", this.usage?.fiveHour], ["每周", this.usage?.weekly]] as const) {
-            lines.push(`${label}：${entry ? `已用 ${percent(entry)}` : "不可用"}`);
-            if (entry?.resetAt) lines.push(`重置时间：${new Date(entry.resetAt).toLocaleString()}`);
+            ? `${icon} Kimi · 5h ${percent(this.usage.fiveHour)} · 7d ${percent(this.usage.weekly)}${this.error ? " $(warning)" : ""}`
+            : loading ? `${icon} Kimi · Loading usage` : "$(warning) Kimi · Usage unavailable";
+
+        const tooltip = new vscode.MarkdownString("", true);
+        tooltip.isTrusted = { enabledCommands: ["kimi.refreshUsage"] };
+        tooltip.appendMarkdown("$(dashboard) **Kimi Code Usage**\n\nAccount quota · percentage used\n\n");
+        const accessible = ["Kimi Code Usage. Account quota, percentage used."];
+        for (const [label, entry] of [["5-hour limit", this.usage?.fiveHour], ["Weekly limit", this.usage?.weekly]] as const) {
+            const value = entry ? `${percent(entry)} used` : "— · Unavailable";
+            tooltip.appendMarkdown(`**${label} · ${value}**\n\n`);
+            accessible.push(`${label}: ${entry ? value : "unavailable"}.`);
+            if (entry) tooltip.appendMarkdown(`\`${usageBar(entry.usedRatio)}\`\n\n`);
+            if (entry?.resetAt) {
+                const reset = formatReset(entry.resetAt, now);
+                const localTime = formatLocalTime(new Date(entry.resetAt));
+                tooltip.appendText(reset);
+                tooltip.appendMarkdown("  \n");
+                tooltip.appendText(`Reset: ${localTime}`);
+                tooltip.appendMarkdown("\n\n");
+                accessible.push(`${reset}. Reset: ${localTime}.`);
+            }
         }
-        lines.push(`最后成功更新：${this.updatedAt?.toLocaleString() ?? "尚未成功"}`);
-        if (this.error) lines.push(`查询失败：${this.error}。不影响聊天请求。`);
-        if (loading) lines.push("正在刷新…");
-        lines.push("每 60 秒刷新；点击手动刷新或打开控制台。");
-        this.item.tooltip = lines.join("\n");
-        this.item.accessibilityInformation = { label: lines.join("。") };
+        tooltip.appendMarkdown("---\n\n");
+        const elapsed = this.updatedAt ? now - this.updatedAt.getTime() : undefined;
+        const updated = elapsed === undefined ? "No successful update yet"
+            : elapsed < 60_000 ? "Updated just now" : `Updated ${formatElapsed(elapsed)} ago`;
+        tooltip.appendText(`${updated} · Every 60s`);
+        tooltip.appendMarkdown("\n\n");
+        accessible.push(`${updated}. Refreshes every 60 seconds.`);
+        if (this.updatedAt) {
+            const lastSuccess = `Last success: ${formatLocalTime(this.updatedAt)}`;
+            tooltip.appendText(lastSuccess);
+            tooltip.appendMarkdown("\n\n");
+            accessible.push(`${lastSuccess}.`);
+        }
+        if (this.error) {
+            const state = this.usage ? "Stale · Refresh failed" : "Usage unavailable · Refresh failed";
+            tooltip.appendMarkdown(`$(warning) **${state}**  \n`);
+            tooltip.appendText(`${this.error}. Chat requests are unaffected.`);
+            tooltip.appendMarkdown("\n\n");
+            accessible.push(`${state}. ${this.error}. Chat requests are unaffected.`);
+        }
+        if (loading) {
+            tooltip.appendMarkdown("$(sync~spin) Refreshing…\n\n");
+            accessible.push("Refreshing.");
+        }
+        tooltip.appendMarkdown("[$(refresh) Refresh](command:kimi.refreshUsage) · [$(link-external) Open Console](https://www.kimi.com/code/console)");
+        accessible.push("Click for Refresh Usage or Open Kimi Console.");
+        this.item.tooltip = tooltip;
+        this.item.accessibilityInformation = { label: accessible.join(" ") };
     }
 
     private stop(): void {
