@@ -223,66 +223,73 @@ export class KimiApiClient {
 		baseUrl: string,
 		options?: ChatOptions,
 		cancellationToken?: vscode.CancellationToken,
+		signal?: AbortSignal,
 	): AsyncGenerator<KimiStreamChunk> {
-		const response = await this.sendRequest(model, messages, baseUrl, true, options, cancellationToken);
-
-		if (!response.body) {
-			throw new KimiApiError("No response body", 0);
-		}
-
-		const reader = response.body.getReader();
-		const decoder = new TextDecoder();
-		let buffer = "";
-		let sawDataEvent = false;
-		let sawDoneMarker = false;
-		const strictSseDone =
-			options?.requireSseDoneMarker !== false;
-
+		const cancellation = requestCancellation(cancellationToken, signal);
 		try {
-			while (true) {
-				if (cancellationToken?.isCancellationRequested) {
-					await reader.cancel();
-					break;
-				}
+			const response = await this.sendRequest(model, messages, baseUrl, true, options, cancellation.signal);
 
-				const { done, value } = await reader.read();
-				buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
-				const lines = buffer.split("\n");
-				buffer = done ? "" : lines.pop() || "";
-
-				for (const line of lines) {
-					const trimmed = line.trim();
-					if (!trimmed || !trimmed.startsWith("data:")) continue;
-
-					const data = trimmed.slice(5).trim();
-					if (data === "[DONE]") {
-						sawDoneMarker = true;
-						return;
-					}
-
-					sawDataEvent = true;
-					try {
-						yield JSON.parse(data) as KimiStreamChunk;
-					} catch {
-						console.warn("Malformed SSE chunk skipped:", data);
-					}
-				}
-				if (done) break;
+			if (!response.body) {
+				throw new KimiApiError("No response body", 0);
 			}
 
-			if (
-				strictSseDone &&
-				!cancellationToken?.isCancellationRequested &&
-				sawDataEvent &&
-				!sawDoneMarker
-			) {
-				throw new KimiApiError(
-					"Stream ended without a data: [DONE] chunk; the response may be incomplete (see Kimi streaming API documentation).",
-					0,
-				);
+			const reader = response.body.getReader();
+			const decoder = new TextDecoder();
+			let buffer = "";
+			let sawDataEvent = false;
+			let sawDoneMarker = false;
+			const strictSseDone =
+				options?.requireSseDoneMarker !== false;
+
+			try {
+				while (true) {
+					if (cancellationToken?.isCancellationRequested) {
+						await reader.cancel();
+						break;
+					}
+
+					const { done, value } = await reader.read();
+					buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
+					const lines = buffer.split("\n");
+					buffer = done ? "" : lines.pop() || "";
+
+					for (const line of lines) {
+						const trimmed = line.trim();
+						if (!trimmed || !trimmed.startsWith("data:")) continue;
+
+						const data = trimmed.slice(5).trim();
+						if (data === "[DONE]") {
+							sawDoneMarker = true;
+							return;
+						}
+
+						sawDataEvent = true;
+						try {
+							yield JSON.parse(data) as KimiStreamChunk;
+						} catch {
+							console.warn("Malformed SSE chunk skipped.");
+						}
+					}
+					if (done) break;
+				}
+
+				if (
+					strictSseDone &&
+					!cancellationToken?.isCancellationRequested &&
+					sawDataEvent &&
+					!sawDoneMarker
+				) {
+					throw new KimiApiError(
+						"Stream ended without a data: [DONE] chunk; the response may be incomplete (see Kimi streaming API documentation).",
+						0,
+					);
+				}
+			} finally {
+				await reader.cancel().catch(() => {});
+				reader.releaseLock();
 			}
 		} finally {
-			reader.releaseLock();
+			cancellation.dispose();
 		}
 	}
 
@@ -292,9 +299,15 @@ export class KimiApiClient {
 		baseUrl: string,
 		options?: ChatOptions,
 		cancellationToken?: vscode.CancellationToken,
+		signal?: AbortSignal,
 	): Promise<KimiResponse> {
-		const response = await this.sendRequest(model, messages, baseUrl, false, options, cancellationToken);
-		return response.json() as Promise<KimiResponse>;
+		const cancellation = requestCancellation(cancellationToken, signal);
+		try {
+			const response = await this.sendRequest(model, messages, baseUrl, false, options, cancellation.signal);
+			return await response.json() as KimiResponse;
+		} finally {
+			cancellation.dispose();
+		}
 	}
 
 	private buildRequestBody(
@@ -349,34 +362,25 @@ export class KimiApiClient {
 		baseUrl: string,
 		stream: boolean,
 		options?: ChatOptions,
-		cancellationToken?: vscode.CancellationToken,
+		signal?: AbortSignal,
 	): Promise<Response> {
-		const abortController = new AbortController();
-		const abortListener = cancellationToken?.onCancellationRequested(() => {
-			abortController.abort();
+		const response = await fetch(`${baseUrl}${CHAT_ENDPOINT}`, {
+			method: "POST",
+			headers: this.headers,
+			body: this.buildRequestBody(model, messages, stream, options),
+			signal,
 		});
 
-		try {
-			const response = await fetch(`${baseUrl}${CHAT_ENDPOINT}`, {
-				method: "POST",
-				headers: this.headers,
-				body: this.buildRequestBody(model, messages, stream, options),
-				signal: abortController.signal,
-			});
-
-			if (response.ok) {
-				return response;
-			}
-
-			const errorBody = await this.parseErrorBody(response);
-			throw new KimiApiError(
-				`Kimi API error: ${response.status} ${response.statusText}`,
-				response.status,
-				errorBody,
-			);
-		} finally {
-			abortListener?.dispose();
+		if (response.ok) {
+			return response;
 		}
+
+		const errorBody = await this.parseErrorBody(response);
+		throw new KimiApiError(
+			`Kimi API error: ${response.status} ${response.statusText}`,
+			response.status,
+			errorBody,
+		);
 	}
 
 	private async parseErrorBody(response: Response): Promise<unknown> {
@@ -387,4 +391,14 @@ export class KimiApiClient {
 			return errorText;
 		}
 	}
+}
+
+function requestCancellation(token?: vscode.CancellationToken, signal?: AbortSignal) {
+	const controller = new AbortController();
+	if (token?.isCancellationRequested) controller.abort();
+	const listener = token?.onCancellationRequested(() => controller.abort());
+	return {
+		signal: signal ? AbortSignal.any([controller.signal, signal]) : controller.signal,
+		dispose: () => listener?.dispose(),
+	};
 }

@@ -1,5 +1,7 @@
 # Kimi Language Model Provider for Copilot
 
+English | [简体中文](README.zh-CN.md)
+
 Use your Kimi Code subscription in VS Code Chat and Agent mode through a custom language model provider. The extension connects directly to the Kimi Code API using your own API key.
 
 Extension ID: `dreamyfishmt.kimi-lm-provider`. This is not an official Kimi or GitHub extension.
@@ -19,6 +21,7 @@ Resolve this dependency and verify normal installed-extension behavior before pu
 - Native thinking parts when the required VS Code API is available.
 - Image attachments, plus text/plain and JSON data attachments.
 - Configurable output token budget and reasoning effort.
+- One-command diagnostics of the loaded account, model discovery, and non-streaming/streaming responses, with a sanitized report.
 - Kimi Code endpoints for overseas and China access, plus a custom base URL.
 
 This extension provides chat models; it does not replace Copilot's inline code completion model. Video attachments are not implemented, even when the selected Kimi model supports video.
@@ -33,6 +36,17 @@ This extension provides chat models; it does not replace Copilot's inline code c
 - Node.js and pnpm for building from source.
 
 Kimi Code subscription keys and Kimi Open Platform keys are not interchangeable. See the [Kimi Code model documentation](https://www.kimi.com/code/docs/en/kimi-code/models.html) for current model and subscription availability.
+
+## Quick start and first chat
+
+1. Install a release VSIX through **Extensions: Install from VSIX**, or follow **Run from source** below. This build still requires the proposed thinking API: for a VSIX, use VS Code Insiders and enable `dreamyfishmt.kimi-lm-provider` following the [official installation instructions](https://code.visualstudio.com/api/advanced-topics/using-proposed-api#sharing-extensions-using-the-proposed-api).
+2. Open Settings, search for `@ext:dreamyfishmt.kimi-lm-provider`, and choose **Kimi Code** (overseas) or **Kimi Code CN** (China).
+3. Open Chat → **Manage Language Models** from the model picker, add **Kimi**, and enter your **Kimi Code subscription API key** from the [console](https://www.kimi.com/code/console). The native provider UI handles the secret; do not add it to user settings or repository files.
+4. Select a Kimi model. If models do not appear, reopen the picker or run **Kimi: Refresh Models**.
+5. Run **Kimi: Diagnose Current Configuration** from the Command Palette and choose the model you intend to use. Review the individual results in the **Kimi** output channel. This sends two small test prompts and consumes account quota.
+6. Start a new chat and ask a short question. For Agent mode, try asking it to read and summarize a test file. Adjust **Thinking Effort** in the model picker when supported; use `kimi.maxOutputTokens` to change the output budget.
+
+The status bar shows account quota used. Its menu opens the console or refreshes usage. For connection failures, rerun diagnostics and copy the sanitized report when reporting an issue.
 
 ## Run from source
 
@@ -147,6 +161,7 @@ Changing a preset preserves the stored custom URL. Existing users who previously
 Open the Command Palette and search for:
 
 - **Kimi: Test Connection**
+- **Kimi: Diagnose Current Configuration**
 - **Kimi: Refresh Models**
 - **Kimi: Refresh Usage**
 - **Kimi: Show Usage Actions**
@@ -156,7 +171,19 @@ Open the Command Palette and search for:
 
 The two Moonshot endpoint commands are also present but do not provide complete Open Platform support.
 
-**Test Connection** asks for a key for that test only; it does not save provider credentials. The current implementation sends a non-streaming `Ping` to `kimi-for-coding` with an output limit of one token and thinking disabled. Success checks basic request connectivity only. It does not validate the selected chat model, streaming, reasoning effort, or multi-turn Agent tools.
+### Diagnose the loaded configuration
+
+**Kimi: Diagnose Current Configuration** reuses the key that VS Code has supplied to this provider. **Kimi: Test Connection** is a compatibility alias for the same diagnostic flow; it no longer asks for a separate API key.
+
+1. Run the command. If no key is loaded, follow the message to open Chat → **Manage Language Models**, configure Kimi, and run it again. After a window reload, the command first asks VS Code to enumerate configured Kimi models. It does not read `.env`, prompt for a key, or store a second copy.
+2. The command queries `/models` live. Select a model from the returned compatible list. If discovery fails, it can offer models already loaded from cache/fallback, but the discovery result remains **FAIL**. An empty successful catalog does not substitute fallback models.
+3. It sends one non-streaming and one streaming request to the selected model at the current endpoint, using the loaded account key and **global** Kimi thinking/effort settings. It does not inspect the active Chat model or its per-chat/per-model effort override; choose the intended model explicitly. With multiple configured accounts, diagnostics follows the most recently prepared provider configuration, just like the usage status bar.
+4. Review **PASS**, **WARN**, **FAIL**, or **CANCELLED** for each stage in the **Kimi** output channel. HTTP success alone is insufficient: responses must contain text or thinking and a completion reason. Reaching the diagnostic output cap produces a warning. Unsupported global effort settings fail before sending chat requests.
+5. Choose **Copy Sanitized Report** on the completion notification to copy the report. It includes versions, endpoint, chosen model, request settings, response timings and stage results. It excludes the API key, URL credentials/query/fragment, arbitrary server error bodies, prompts and generated content. Review the report before sharing it if a custom endpoint's hostname/path contains private information.
+
+Model discovery has a 10-second timeout; each chat check has a 60-second timeout covering the response body as well as the initial connection. The progress notification can cancel the run. Concurrent invocations share one run. Each test requests at most `min(1024, configured model output budget)` tokens; thinking uses that budget too, so a very small budget may produce a truncation warning. No workspace files or conversation history are sent or modified. Test requests consume quota, and there is no automatic retry.
+
+This checks basic model access and response transport. It does not verify image attachments, tool execution, multi-turn thinking history, or entitlement to the advertised maximum context window.
 
 For a fuller check, start a new chat with an entitled model, verify a text response, then ask Agent mode to read a test file without modifying it. During development, inspect the outgoing request to confirm the model ID, endpoint, output limit, and reasoning effort.
 
@@ -191,6 +218,7 @@ Authentication uses `Authorization: Bearer <apiKey>`. The client identifies this
 ## Troubleshooting
 
 - **No models listed:** Configure the API key under the Kimi provider and check that the extension activated.
+- **Diagnose a connection problem:** Run **Kimi: Diagnose Current Configuration**, choose the intended model, inspect the failed stage in the **Kimi** output channel, and use **Copy Sanitized Report** when reporting the issue. A discovery failure can coexist with successful response checks when cached/fallback models were offered.
 - **Extension cannot load:** Check the VS Code minimum version and proposed API availability. Development success does not establish normal Marketplace installation compatibility.
 - **HTTP 401:** Check the server response as well as the key. Kimi can use 401 for model/context entitlement failures. The current chat error prefix still labels all 401 responses as authentication failures.
 - **HTTP 403:** May indicate exhausted quota, concurrency limits, or another rejection. Inspect the response detail.
@@ -230,16 +258,16 @@ The [Release VSIX workflow](.github/workflows/release.yml) runs when a release t
 | `vX.Y.Z` | Stable release, marked Latest | `kimi-lm-provider-X.Y.Z-stable.vsix` |
 | `nightly-vX.Y.Z` | Prerelease, never marked Latest | `kimi-lm-provider-X.Y.Z-nightly.vsix`, marked as a prerelease package |
 
-The tag version must exactly match `package.json`. For example, with the current version `0.5.2`, publish either channel from the commit you want to release:
+The tag version must exactly match `package.json`. For example, with the current version `0.5.3`, publish either channel from the commit you want to release:
 
 ```sh
 # Stable
-git tag v0.5.2
-git push origin v0.5.2
+git tag v0.5.3
+git push origin v0.5.3
 
 # Nightly
-git tag nightly-v0.5.2
-git push origin nightly-v0.5.2
+git tag nightly-v0.5.3
+git push origin nightly-v0.5.3
 ```
 
 Commit the workflow and all intended source changes before creating a tag. Each new release needs a new tag; update `package.json` and `package-lock.json` together when changing the version. The workflow validates the version, installs dependencies with `npm ci`, compiles and runs tests, then packages the extension with a pinned version of `vsce`. A failed check prevents publication. Rerunning a successful tag workflow updates the existing release and replaces its VSIX asset.

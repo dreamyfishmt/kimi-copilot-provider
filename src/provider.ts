@@ -7,7 +7,7 @@ import {
 	type KimiTool,
 } from "./api.js";
 import { getApiBaseUrl, getReasoningEffort } from "./config.js";
-import { KIMI_MODELS, toLanguageModelChatInformation, getModelTokenBudget } from "./models.js";
+import { KIMI_MODELS, toLanguageModelChatInformation, getModelTokenBudget, type KimiModelInfo } from "./models.js";
 import { assistantToolCallThinkingPayload } from "./reasoning.js";
 import { accountId, ModelCatalog } from "./catalog.js";
 import type { Account } from "./usage.js";
@@ -163,6 +163,12 @@ export class KimiChatProvider implements vscode.LanguageModelChatProvider {
 
 	get account(): Account | undefined {
 		return this.apiKey ? { apiKey: this.apiKey, baseUrl: getApiBaseUrl() } : undefined;
+	}
+
+	get diagnosticConfiguration(): { account: Account; models: readonly KimiModelInfo[] } | undefined {
+		const account = this.account;
+		if (!account) return undefined;
+		return { account, models: [...this.catalogFor(account.apiKey).models] };
 	}
 
 	private catalogFor(key: string): ModelCatalog {
