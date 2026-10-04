@@ -4,7 +4,7 @@
 
 在 VS Code Chat 和 Agent 模式中使用你的 Kimi Code 订阅。扩展通过你自己的 API Key 直接连接 Kimi Code API。
 
-扩展 ID：`dreamyfishmt.kimi-code-copilot-provider`。本项目并非 Kimi 或 GitHub 官方扩展。
+扩展 ID：`dreamyfishmt.kimi-copilot-provider`。本项目并非 Kimi 或 GitHub 官方扩展。
 
 ## 为什么选择这个插件？
 
@@ -45,13 +45,13 @@ Kimi Code 订阅 Key 与 Kimi 开放平台 Key 不能互换。模型与套餐信
 可以直接从 [GitHub Releases](https://github.com/dreamyfishmt/kimi-copilot-provider/releases) 下载已打包的插件，无需自行编译源码。
 
 1. 打开 Releases 页面，选择最新发布的版本。Nightly 标有 **Pre-release（预发布）**；查找最新 nightly 时请查看发布列表，不要只看 GitHub 的 **Latest** 标记，该标记用于正式版。
-2. 展开 **Assets（附件）**，下载以 `.vsix` 结尾的文件，例如 `kimi-code-copilot-provider-X.Y.Z-nightly.vsix`。请选择 VSIX 安装包，而不是源码 ZIP 或 tarball。
+2. 展开 **Assets（附件）**，下载以 `.vsix` 结尾的文件，例如 `kimi-copilot-provider-X.Y.Z-nightly.vsix`。请选择 VSIX 安装包，而不是源码 ZIP 或 tarball。
 3. 在 VS Code 中打开扩展面板，点击 **…**，选择 **Install from VSIX…（从 VSIX 安装…）**，选中刚下载的文件，按提示重载窗口。已有旧版本时，也可以用同样步骤安装新版 VSIX 进行更新。
 
 ## 快速开始：完成配置并开始聊天
 
 1. 按上方步骤下载并安装发布版本的 VSIX，或按照下文“从源码运行”启动开发版本。
-2. 打开设置，搜索 `@ext:dreamyfishmt.kimi-code-copilot-provider`。海外访问选择 **Kimi Code**，中国访问选择 **Kimi Code CN**。
+2. 打开设置，搜索 `@ext:dreamyfishmt.kimi-copilot-provider`。海外访问选择 **Kimi Code**，中国访问选择 **Kimi Code CN**。
 3. 打开 Chat，从模型选择器进入 **Manage Language Models（管理语言模型）**，添加 **Kimi**，填写控制台中的 **Kimi Code 订阅 API Key**。密钥由 VS Code 原生提供商配置界面管理，不要写入用户设置或仓库文件。
 4. 选择一个 Kimi 模型。如果没有出现模型，重新打开模型选择器，或运行 **Kimi: Refresh Models**。
 5. 从命令面板运行 **Kimi: Diagnose Current Configuration**，选择准备使用的模型，在 **Kimi** 输出通道查看各项检查结果。诊断会发送两条小型测试请求，并消耗账号额度。
@@ -76,7 +76,7 @@ Kimi Code 订阅 Key 与 Kimi 开放平台 Key 不能互换。模型与套餐信
 
 ## 配置提供商
 
-1. 在开发窗口的设置中搜索 `@ext:dreamyfishmt.kimi-code-copilot-provider`。
+1. 在开发窗口的设置中搜索 `@ext:dreamyfishmt.kimi-copilot-provider`。
 2. 在 **Kimi: Endpoint** 中选择 **Kimi Code** 或 **Kimi Code CN**。
 3. 打开 Chat，从模型选择器进入 **Manage Language Models**。
 4. 添加 **Kimi** 并输入 Kimi Code API Key。该字段在提供商配置中声明为秘密字段。
@@ -226,7 +226,7 @@ VS Code 在助手工具调用历史中返回思考片段时，扩展将它们合
 
 VS Code 传入的聊天内容、图片、支持的文本/JSON 附件及工具结果会发送到配置的端点。图片编码成 base64 `image_url`。不支持的二进制附件（包括视频）会替换为省略提示。诊断只发送内置小型测试提示，不发送工作区或聊天内容。
 
-认证使用 `Authorization: Bearer <apiKey>`。客户端标识为 `kimi-lm-provider/<extension-version> (VSCode/<vscode-version>; dreamyfishmt.kimi-code-copilot-provider)`，扩展版本和 ID 来自 `package.json`，VS Code 版本来自运行环境。`X-Msh-Platform` 为 `kimi-lm-provider`，`X-Msh-Version` 为扩展版本。
+认证使用 `Authorization: Bearer <apiKey>`。客户端标识为 `kimi-lm-provider/<extension-version> (VSCode/<vscode-version>; dreamyfishmt.kimi-copilot-provider)`，扩展版本和 ID 来自 `package.json`，VS Code 版本来自运行环境。`X-Msh-Platform` 为 `kimi-lm-provider`，`X-Msh-Version` 为扩展版本。
 
 默认不读取主机名或系统/设备详情，不生成设备 ID，也不发送 `X-Msh-Device-Name`、`X-Msh-Device-Model`、`X-Msh-Device-Id`、`X-Msh-Os-Version`。设置 `kimi.sendDeviceInfo` 为 `true` 后开启这四个头；随机 ID 在首次使用时生成，仅保留在当前加载的模块实例中。这些标识描述本独立提供商，不冒充 GitHub Copilot 官方客户端。服务端是否接受需通过实际请求验证。
 
@@ -269,19 +269,19 @@ pnpm dlx @vscode/vsce package --no-dependencies
 
 | 标签 | GitHub Release | VSIX |
 | --- | --- | --- |
-| `vX.Y.Z` | 正式版，标为 Latest | `kimi-code-copilot-provider-X.Y.Z-stable.vsix` |
-| `nightly-vX.Y.Z` | 预发布，不标为 Latest | `kimi-code-copilot-provider-X.Y.Z-nightly.vsix`，标为预发布包 |
+| `vX.Y.Z` | 正式版，标为 Latest | `kimi-copilot-provider-X.Y.Z-stable.vsix` |
+| `nightly-vX.Y.Z` | 预发布，不标为 Latest | `kimi-copilot-provider-X.Y.Z-nightly.vsix`，标为预发布包 |
 
-标签版本必须与 `package.json` 完全一致。例如当前版本为 `0.5.6`，可在希望发布的提交上选择一个渠道：
+标签版本必须与 `package.json` 完全一致。例如当前版本为 `0.5.7`，可在希望发布的提交上选择一个渠道：
 
 ```sh
 # 正式版
-git tag v0.5.6
-git push origin v0.5.6
+git tag v0.5.7
+git push origin v0.5.7
 
 # Nightly
-git tag nightly-v0.5.6
-git push origin nightly-v0.5.6
+git tag nightly-v0.5.7
+git push origin nightly-v0.5.7
 ```
 
 创建标签前先提交工作流和需要发布的源码。每次新发布使用新标签；修改版本时同步更新 `package.json` 和 `package-lock.json`。工作流校验版本，用 `npm ci` 安装依赖，编译并运行测试，再用固定版本的 `vsce` 打包。检查失败会阻止发布。重新运行成功标签的工作流会更新已有 Release 并替换 VSIX 附件。
