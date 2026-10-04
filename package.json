@@ -63,6 +63,12 @@
 					"scope": "application",
 					"markdownDescription": "Maximum output tokens allowed per request by this extension. This budget is reserved from the context window; it is not the model's documented maximum output capability."
 				},
+				"kimi.sendDeviceInfo": {
+					"type": "boolean",
+					"default": false,
+					"scope": "application",
+					"markdownDescription": "Send hostname, device/OS details, and a random session device ID to the configured API endpoint. Disabled by default; when disabled, this extension does not collect these details or send device information headers."
+				},
 				"kimi.reasoningEffort": {
 					"type": "string",
 					"enum": [

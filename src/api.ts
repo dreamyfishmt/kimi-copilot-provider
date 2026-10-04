@@ -1,11 +1,16 @@
 import * as vscode from "vscode";
 import { hostname, type, release, machine, version } from "node:os";
 import { randomUUID } from "node:crypto";
-import type { ReasoningEffort } from "./config.js";
+import { getSendDeviceInfoEnabled, type ReasoningEffort } from "./config.js";
 
 const CHAT_ENDPOINT = "/chat/completions";
-const VERSION = "1.47.0";
-const DEVICE_ID = randomUUID().replace(/-/g, "");
+const EXTENSION_MANIFEST = require("../package.json") as {
+	name: string;
+	publisher: string;
+	version: string;
+};
+const EXTENSION_ID = `${EXTENSION_MANIFEST.publisher}.${EXTENSION_MANIFEST.name}`;
+let deviceId: string | undefined;
 
 function asciiHeaderValue(value: string, fallback = "unknown"): string {
 	const sanitized = value.replace(/[^\x20-\x7e]/g, "").trim();
@@ -41,19 +46,25 @@ function kimiDeviceModel(): string {
 }
 
 function getDefaultHeaders(apiKey: string): Record<string, string> {
-	return {
+	const headers: Record<string, string> = {
 		"Content-Type": "application/json",
 		Authorization: `Bearer ${apiKey}`,
-		"User-Agent": `KimiCLI/${VERSION}`,
-		"X-Msh-Platform": "kimi_cli",
-		"X-Msh-Version": VERSION,
-		"X-Msh-Device-Name": asciiHeaderValue(hostname() || "unknown"),
-		"X-Msh-Device-Model": asciiHeaderValue(kimiDeviceModel()),
-		"X-Msh-Device-Id": DEVICE_ID,
-		"X-Msh-Os-Version": asciiHeaderValue(
-			version?.() || `${type()} ${release()}`,
+		"User-Agent": asciiHeaderValue(
+			`kimi-lm-provider/${EXTENSION_MANIFEST.version} (VSCode/${vscode.version}; ${EXTENSION_ID})`,
 		),
+		"X-Msh-Platform": "kimi-lm-provider",
+		"X-Msh-Version": EXTENSION_MANIFEST.version,
 	};
+	if (getSendDeviceInfoEnabled()) {
+		deviceId ??= randomUUID().replace(/-/g, "");
+		headers["X-Msh-Device-Name"] = asciiHeaderValue(hostname() || "unknown");
+		headers["X-Msh-Device-Model"] = asciiHeaderValue(kimiDeviceModel());
+		headers["X-Msh-Device-Id"] = deviceId;
+		headers["X-Msh-Os-Version"] = asciiHeaderValue(
+			version?.() || `${type()} ${release()}`,
+		);
+	}
+	return headers;
 }
 
 export type KimiContent =

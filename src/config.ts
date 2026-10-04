@@ -28,6 +28,11 @@ export function getApiBaseUrl(): string {
 
     return url.trim().replace(/\/+$/, "");
 }
+export function getSendDeviceInfoEnabled(): boolean {
+    return vscode.workspace.getConfiguration(CONFIG_SECTION)
+        .get<unknown>("sendDeviceInfo", false) === true;
+}
+
 export function getReasoningEffort(): ReasoningEffort | undefined {
     const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
     const value = config.get<unknown>("reasoningEffort", "default");
