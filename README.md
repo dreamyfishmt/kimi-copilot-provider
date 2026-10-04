@@ -16,12 +16,6 @@ Extension ID: `dreamyfishmt.kimi-lm-provider`. This is not an official Kimi or G
 - **Diagnose the configuration you actually use.** One command checks the loaded account, live model discovery, and both ordinary and streaming responses. Stage results and a copyable sanitized report help you locate setup problems and provide useful issue reports without copying your API key or chat content. Diagnostic requests consume account quota.
 - **Keep credentials and optional device details under control.** API keys are entered through VS Code's native secret provider field; the extension does not persist another copy in its model cache. Hostname, OS/device details, and device-ID headers are disabled by default. Choose the China or overseas Kimi Code endpoint, or a compatible custom endpoint, for your setup.
 
-## Current release status
-
-The current source declares the proposed VS Code API `languageModelThinkingPart`. Local debugging has been exercised, but this is not yet a standard Marketplace-ready build. VS Code's [proposed API guidance](https://code.visualstudio.com/api/advanced-topics/using-proposed-api) says extensions using proposed APIs should not be published to the Marketplace.
-
-Resolve this dependency and verify normal installed-extension behavior before publishing. Removing the manifest declaration alone does not preserve thinking display or history handling.
-
 ## Features
 
 - Automatic model discovery, with account/endpoint-scoped caching and manual refresh.
@@ -39,7 +33,6 @@ This extension provides chat models; it does not replace Copilot's inline code c
 ## Requirements
 
 - VS Code 1.120.0 or later, as declared in the manifest.
-- A VS Code environment supporting the declared thinking API. VS Code Insiders is the documented environment for proposed API development.
 - Chat/Agent functionality available in the development window.
 - An active Kimi Code subscription with access to the selected model.
 - An API key from the [Kimi Code console](https://www.kimi.com/code/console).
@@ -53,9 +46,7 @@ You can install a prebuilt package directly from [GitHub Releases](https://githu
 
 1. Open the Releases page and choose the newest published release. Nightly builds are marked **Pre-release**; check the release list for the newest nightly rather than relying on GitHub's **Latest** badge, which is reserved for stable releases.
 2. Expand **Assets** and download the `.vsix` file, such as `kimi-lm-provider-X.Y.Z-nightly.vsix`. Choose the VSIX package rather than the source-code ZIP or tarball.
-3. In VS Code Insiders, open the Extensions view, click **…**, choose **Install from VSIX…**, and select the downloaded file. Reload the window when prompted. Use the same steps to install a newer VSIX over an existing installation.
-
-The current build still requires the proposed thinking API. Enable it for `dreamyfishmt.kimi-lm-provider` following the [official installation instructions](https://code.visualstudio.com/api/advanced-topics/using-proposed-api#sharing-extensions-using-the-proposed-api), then complete the configuration below.
+3. In VS Code, open the Extensions view, click **…**, choose **Install from VSIX…**, and select the downloaded file. Reload the window when prompted. Use the same steps to install a newer VSIX over an existing installation.
 
 ## Quick start and first chat
 
@@ -81,7 +72,7 @@ The status bar shows account quota used. Its menu opens the console or refreshes
 3. Open Run and Debug, select **Run Kimi ext**, and press **F5**.
 4. Continue in the new **Extension Development Host** window.
 
-The included launch configuration enables proposed APIs for `dreamyfishmt.kimi-lm-provider`. It does not automatically compile before launch. After changing TypeScript code, compile again and restart debugging. Alternatively, run `pnpm run watch` during development.
+The included launch configuration does not automatically compile before launch. After changing TypeScript code, compile again and restart debugging. Alternatively, run `pnpm run watch` during development.
 
 ## Configure the provider
 
@@ -141,7 +132,7 @@ Supported models expose a **Thinking Effort** menu using the server's advertised
 
 The global `kimi.reasoningEffort` setting is a fallback when the request contains no effort selection; its `default` value still omits `reasoning_effort`. Request-level `modelOptions.reasoningEffort` overrides the model picker value. Effort is applied only when thinking is enabled and is omitted for HighSpeed, which does not expose this menu.
 
-The picker integration uses the current runtime's non-public `configurationSchema` and `modelConfiguration` fields without adding a `chatProvider` proposal declaration. Verify menu display and request values after VS Code upgrades. After installing an updated VSIX, reload the window and select the model in a new chat if an existing chat still shows the old menu.
+The picker integration uses the current runtime's non-public `configurationSchema` and `modelConfiguration` fields. Verify menu display and request values after VS Code upgrades. After installing an updated VSIX, reload the window and select the model in a new chat if an existing chat still shows the old menu.
 
 Example user settings:
 
@@ -221,7 +212,7 @@ Run `pnpm test` for parser, cache, account isolation, refresh/timeout, and chat 
 
 The extension emits `LanguageModelThinkingPart` for `reasoning_content` and `LanguageModelTextPart` for answer text. It does not wrap reasoning in HTML `<details>` blocks.
 
-When VS Code returns thinking parts alongside an assistant tool call, the extension joins those parts and sends them back as `reasoning_content`. If none are present while thinking is enabled, it sends `reasoning_content: ""` without inserting placeholder text. If the proposed thinking API is unavailable, reasoning display is skipped while ordinary answer text is still emitted.
+When VS Code returns thinking parts alongside an assistant tool call, the extension joins those parts and sends them back as `reasoning_content`. If none are present while thinking is enabled, it sends `reasoning_content: ""` without inserting placeholder text. If native thinking parts are unavailable, reasoning display is skipped while ordinary answer text is still emitted.
 
 Tool call arguments are accumulated from streamed deltas and reported to VS Code for execution. Streaming and history handling should be tested in the intended VS Code version before release.
 
@@ -239,7 +230,7 @@ Authentication uses `Authorization: Bearer <apiKey>`. The client identifies this
 
 - **No models listed:** Configure the API key under the Kimi provider and check that the extension activated.
 - **Diagnose a connection problem:** Run **Kimi: Diagnose Current Configuration**, choose the intended model, inspect the failed stage in the **Kimi** output channel, and use **Copy Sanitized Report** when reporting the issue. A discovery failure can coexist with successful response checks when cached/fallback models were offered.
-- **Extension cannot load:** Check the VS Code minimum version and proposed API availability. Development success does not establish normal Marketplace installation compatibility.
+- **Extension cannot load:** Check the VS Code minimum version and reload the window after installing the extension.
 - **HTTP 401:** Check the server response as well as the key. Kimi can use 401 for model/context entitlement failures. The current chat error prefix still labels all 401 responses as authentication failures.
 - **HTTP 403:** May indicate exhausted quota, concurrency limits, or another rejection. Inspect the response detail.
 - **HTTP 429:** May indicate rate limiting or overload. The current chat error message is generic.
@@ -258,11 +249,9 @@ pnpm dlx @vscode/vsce package --no-dependencies
 
 `--no-dependencies` is appropriate for this source tree because it has no production npm dependencies; runtime imports use VS Code, Node.js, and compiled local modules. Revisit this flag if production dependencies are added. Packaging also runs `vscode:prepublish`.
 
-A local VSIX does not remove the proposed API requirement. See [sharing extensions using proposed APIs](https://code.visualstudio.com/api/advanced-topics/using-proposed-api#sharing-extensions-using-the-proposed-api) for installation and launch requirements.
-
 Before a Marketplace release:
 
-1. Resolve the proposed thinking API dependency and verify thinking/history behavior in a normal installed extension.
+1. Verify thinking display and history handling in a normal installed extension.
 2. Verify model access, streaming, images, tool calls, and failure messages in the target VS Code version.
 3. Confirm ownership of the Marketplace publisher ID `dreamyfishmt`; a GitHub username alone does not register a Marketplace publisher.
 4. Choose the release version and review the VSIX contents, including README, license, icon, and compiled entry point.
@@ -278,21 +267,21 @@ The [Release VSIX workflow](.github/workflows/release.yml) runs when a release t
 | `vX.Y.Z` | Stable release, marked Latest | `kimi-lm-provider-X.Y.Z-stable.vsix` |
 | `nightly-vX.Y.Z` | Prerelease, never marked Latest | `kimi-lm-provider-X.Y.Z-nightly.vsix`, marked as a prerelease package |
 
-The tag version must exactly match `package.json`. For example, with the current version `0.5.4`, publish either channel from the commit you want to release:
+The tag version must exactly match `package.json`. For example, with the current version `0.5.5`, publish either channel from the commit you want to release:
 
 ```sh
 # Stable
-git tag v0.5.4
-git push origin v0.5.4
+git tag v0.5.5
+git push origin v0.5.5
 
 # Nightly
-git tag nightly-v0.5.4
-git push origin nightly-v0.5.4
+git tag nightly-v0.5.5
+git push origin nightly-v0.5.5
 ```
 
 Commit the workflow and all intended source changes before creating a tag. Each new release needs a new tag; update `package.json` and `package-lock.json` together when changing the version. The workflow validates the version, installs dependencies with `npm ci`, compiles and runs tests, then packages the extension with a pinned version of `vsce`. A failed check prevents publication. Rerunning a successful tag workflow updates the existing release and replaces its VSIX asset.
 
-The workflow uses GitHub's built-in `GITHUB_TOKEN` with `contents: write`; no personal access token or Marketplace secret is needed. Enable GitHub Actions in the repository and ensure repository/organization policy permits the workflow's write permission. GitHub release channels do not change this extension's VS Code version or proposed API requirements described above.
+The workflow uses GitHub's built-in `GITHUB_TOKEN` with `contents: write`; no personal access token or Marketplace secret is needed. Enable GitHub Actions in the repository and ensure repository/organization policy permits the workflow's write permission. GitHub release channels do not change this extension's VS Code version requirements described above.
 
 ## License and acknowledgements
 

@@ -16,12 +16,6 @@
 - **一键诊断正在使用的配置。** 检查已加载账号、实时模型发现，以及普通响应和流式响应。分阶段结果和可复制的脱敏报告，帮助定位配置问题，也便于反馈问题，无需复制 API Key 或聊天内容。诊断请求会消耗账号额度。
 - **密钥与可选设备信息由你控制。** API Key 通过 VS Code 原生秘密字段配置，扩展不会在模型缓存中另存一份密钥。主机名、系统和设备详情、设备 ID 请求头默认关闭；可按使用环境选择 Kimi Code 中国、海外端点或兼容的自定义端点。
 
-## 当前发布状态
-
-当前源码声明使用 VS Code 实验性 API `languageModelThinkingPart`。已进行本地开发调试，但尚未达到标准 Marketplace 发布条件。[VS Code 官方说明](https://code.visualstudio.com/api/advanced-topics/using-proposed-api)要求使用实验性 API 的扩展不要发布到 Marketplace。
-
-正式发布前，需要解决这一依赖，并验证普通安装环境中的行为。仅删除清单中的声明不能保证思考过程显示及历史回传仍然正常。
-
 ## 功能
 
 - 自动发现模型，按账号和端点隔离缓存，支持手动刷新。
@@ -39,7 +33,6 @@
 ## 环境要求
 
 - VS Code 1.120.0 或更新版本，与扩展清单一致。
-- 支持所声明思考 API 的 VS Code 环境。实验性 API 的官方开发环境为 VS Code Insiders。
 - 开发窗口中可使用 Chat / Agent 功能。
 - 有效的 Kimi Code 订阅，且拥有所选模型的访问权限。
 - 从 [Kimi Code 控制台](https://www.kimi.com/code/console)获取的 API Key。
@@ -53,9 +46,7 @@ Kimi Code 订阅 Key 与 Kimi 开放平台 Key 不能互换。模型与套餐信
 
 1. 打开 Releases 页面，选择最新发布的版本。Nightly 标有 **Pre-release（预发布）**；查找最新 nightly 时请查看发布列表，不要只看 GitHub 的 **Latest** 标记，该标记用于正式版。
 2. 展开 **Assets（附件）**，下载以 `.vsix` 结尾的文件，例如 `kimi-lm-provider-X.Y.Z-nightly.vsix`。请选择 VSIX 安装包，而不是源码 ZIP 或 tarball。
-3. 在 VS Code Insiders 中打开扩展面板，点击 **…**，选择 **Install from VSIX…（从 VSIX 安装…）**，选中刚下载的文件，按提示重载窗口。已有旧版本时，也可以用同样步骤安装新版 VSIX 进行更新。
-
-当前版本仍依赖实验性思考 API。请按[官方安装说明](https://code.visualstudio.com/api/advanced-topics/using-proposed-api#sharing-extensions-using-the-proposed-api)为 `dreamyfishmt.kimi-lm-provider` 启用该 API，然后继续完成下方配置。
+3. 在 VS Code 中打开扩展面板，点击 **…**，选择 **Install from VSIX…（从 VSIX 安装…）**，选中刚下载的文件，按提示重载窗口。已有旧版本时，也可以用同样步骤安装新版 VSIX 进行更新。
 
 ## 快速开始：完成配置并开始聊天
 
@@ -81,7 +72,7 @@ Kimi Code 订阅 Key 与 Kimi 开放平台 Key 不能互换。模型与套餐信
 3. 打开“运行和调试”，选择 **Run Kimi ext**，按 **F5**。
 4. 在新打开的 **Extension Development Host** 窗口中继续配置和使用。
 
-仓库中的启动配置会为 `dreamyfishmt.kimi-lm-provider` 启用实验性 API，但不会在启动前自动编译。修改 TypeScript 后，需要重新编译并重启调试；也可在开发时运行 `pnpm run watch`。
+仓库中的启动配置不会在启动前自动编译。修改 TypeScript 后，需要重新编译并重启调试；也可在开发时运行 `pnpm run watch`。
 
 ## 配置提供商
 
@@ -141,7 +132,7 @@ maxInputTokens = contextWindow - configured maxOutputTokens
 
 没有请求级思考强度选择时，`kimi.reasoningEffort` 作为后备；其中 `default` 仍然省略 `reasoning_effort`。请求的 `modelOptions.reasoningEffort` 优先于模型选择器值。只有启用思考时才应用强度；HighSpeed 不展示该菜单，也不发送强度参数。
 
-模型选择器集成使用运行时非公开的 `configurationSchema` 和 `modelConfiguration` 字段，未增加 `chatProvider` 实验性声明。升级 VS Code 后应检查菜单及实际请求值。更新 VSIX 后，如果旧聊天仍展示旧菜单，请重载窗口，并在新聊天中重新选择模型。
+模型选择器集成使用运行时非公开的 `configurationSchema` 和 `modelConfiguration` 字段。升级 VS Code 后应检查菜单及实际请求值。更新 VSIX 后，如果旧聊天仍展示旧菜单，请重载窗口，并在新聊天中重新选择模型。
 
 用户设置示例：
 
@@ -223,7 +214,7 @@ VS Code 提供配置好的 Key 后，状态栏显示额度图标和类似 `Kimi 
 
 扩展用 `LanguageModelThinkingPart` 传递 `reasoning_content`，用 `LanguageModelTextPart` 传递答案文本，不会把思考包成 HTML `<details>`。
 
-VS Code 在助手工具调用历史中返回思考片段时，扩展将它们合并并作为 `reasoning_content` 回传。启用思考但没有这些片段时，发送 `reasoning_content: ""`，不插入占位文本。所需实验性 API 不可用时，跳过思考显示，但仍输出普通答案。
+VS Code 在助手工具调用历史中返回思考片段时，扩展将它们合并并作为 `reasoning_content` 回传。启用思考但没有这些片段时，发送 `reasoning_content: ""`，不插入占位文本。原生思考组件不可用时，跳过思考显示，但仍输出普通答案。
 
 工具调用参数从流式增量中累积，然后交给 VS Code 执行。发布前应在目标 VS Code 版本中验证流式及历史处理。
 
@@ -243,7 +234,7 @@ VS Code 传入的聊天内容、图片、支持的文本/JSON 附件及工具结
 
 - **没有模型**：在 Kimi 提供商中配置 API Key，确认扩展已激活。
 - **诊断连接问题**：运行 **Kimi: Diagnose Current Configuration**，选择目标模型，在输出通道查看失败阶段。反馈问题时使用 **Copy Sanitized Report**。使用缓存/后备模型时，模型发现失败与响应检查成功可以同时出现。
-- **扩展无法加载**：检查 VS Code 最低版本和实验性 API 是否可用。开发调试成功不代表普通 Marketplace 安装兼容。
+- **扩展无法加载**：检查 VS Code 最低版本，并在安装扩展后重载窗口。
 - **HTTP 401**：同时检查 Key 和服务端信息，可能是模型或上下文套餐权限不足。当前普通聊天错误前缀仍将全部 401 标为认证失败；诊断会提示同时检查 Key 和权限。
 - **HTTP 403**：可能是额度耗尽、并发限制或其他拒绝，查看服务端详情和账号控制台。
 - **HTTP 429**：可能是限流或服务过载。当前普通聊天提示较泛化，等待后重试。
@@ -263,11 +254,9 @@ pnpm dlx @vscode/vsce package --no-dependencies
 
 当前没有生产 npm 依赖，运行时只使用 VS Code、Node.js 和编译后的本地模块，因此可用 `--no-dependencies`。新增生产依赖后需重新评估该选项。打包也会执行 `vscode:prepublish`。
 
-本地 VSIX 不会消除实验性 API 要求，安装及启动方式见[官方说明](https://code.visualstudio.com/api/advanced-topics/using-proposed-api#sharing-extensions-using-the-proposed-api)。
-
 发布到 Marketplace 前：
 
-1. 解决实验性思考 API 依赖，在普通安装环境验证思考和历史行为。
+1. 在普通安装环境验证思考显示和历史处理。
 2. 在目标 VS Code 版本验证模型访问、流式、图片、工具调用及错误提示。
 3. 确认拥有 Marketplace 发布者 ID `dreamyfishmt`，GitHub 用户名并不自动注册发布者。
 4. 确定版本，检查 VSIX 中的 README、许可证、图标和编译入口。
@@ -283,21 +272,21 @@ pnpm dlx @vscode/vsce package --no-dependencies
 | `vX.Y.Z` | 正式版，标为 Latest | `kimi-lm-provider-X.Y.Z-stable.vsix` |
 | `nightly-vX.Y.Z` | 预发布，不标为 Latest | `kimi-lm-provider-X.Y.Z-nightly.vsix`，标为预发布包 |
 
-标签版本必须与 `package.json` 完全一致。例如当前版本为 `0.5.4`，可在希望发布的提交上选择一个渠道：
+标签版本必须与 `package.json` 完全一致。例如当前版本为 `0.5.5`，可在希望发布的提交上选择一个渠道：
 
 ```sh
 # 正式版
-git tag v0.5.4
-git push origin v0.5.4
+git tag v0.5.5
+git push origin v0.5.5
 
 # Nightly
-git tag nightly-v0.5.4
-git push origin nightly-v0.5.4
+git tag nightly-v0.5.5
+git push origin nightly-v0.5.5
 ```
 
 创建标签前先提交工作流和需要发布的源码。每次新发布使用新标签；修改版本时同步更新 `package.json` 和 `package-lock.json`。工作流校验版本，用 `npm ci` 安装依赖，编译并运行测试，再用固定版本的 `vsce` 打包。检查失败会阻止发布。重新运行成功标签的工作流会更新已有 Release 并替换 VSIX 附件。
 
-工作流使用 GitHub 内置 `GITHUB_TOKEN` 和 `contents: write`，不需要个人访问令牌或 Marketplace 密钥。需要启用仓库 GitHub Actions，并允许工作流写权限。GitHub 发布渠道不会改变前述 VS Code 版本和实验性 API 要求。
+工作流使用 GitHub 内置 `GITHUB_TOKEN` 和 `contents: write`，不需要个人访问令牌或 Marketplace 密钥。需要启用仓库 GitHub Actions，并允许工作流写权限。GitHub 发布渠道不会改变前述 VS Code 版本要求。
 
 ## 许可证与致谢
 

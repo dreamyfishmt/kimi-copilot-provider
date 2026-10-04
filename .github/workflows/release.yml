@@ -94,8 +94,7 @@ jobs:
 
           Download the attached VSIX and use **Extensions: Install from VSIX** in VS Code.
 
-          This extension currently requires the proposed languageModelThinkingPart API.
-          See the README and [VS Code proposed API installation instructions](https://code.visualstudio.com/api/advanced-topics/using-proposed-api#sharing-extensions-using-the-proposed-api).
+          See the README for requirements and configuration instructions.
           EOF
 
           # Re-running a successful tag build refreshes the existing release asset.
