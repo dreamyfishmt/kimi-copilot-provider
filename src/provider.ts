@@ -10,6 +10,12 @@ import { getApiBaseUrl, getReasoningEffort } from "./config.js";
 import { KIMI_MODELS, toLanguageModelChatInformation, getModelTokenBudget } from "./models.js";
 import { assistantToolCallThinkingPayload } from "./reasoning.js";
 
+// Compatibility fields used by the current VS Code model picker (non-public API).
+type KimiResponseOptions = vscode.ProvideLanguageModelChatResponseOptions & {
+	readonly modelConfiguration?: Readonly<Record<string, unknown>>;
+	readonly configuration?: Readonly<Record<string, unknown>>;
+};
+
 interface ToolCallBuilder {
 	id: string;
 	name: string;
@@ -191,7 +197,14 @@ export class KimiChatProvider implements vscode.LanguageModelChatProvider {
 
 		const budget = getModelTokenBudget(modelDef);
 		const thinking = this.resolveThinkingEnabled(modelDef, options);
-		const reasoningEffort = thinking && modelDef.supportsReasoningEffort ? getReasoningEffort() : undefined;
+		const requestOptions = options as KimiResponseOptions;
+		const selectedEffort =
+			requestOptions.modelOptions?.reasoningEffort ??
+			requestOptions.modelConfiguration?.reasoningEffort ??
+			requestOptions.configuration?.reasoningEffort;
+		const reasoningEffort = thinking && modelDef.supportsReasoningEffort
+			? getReasoningEffort(selectedEffort)
+			: undefined;
 		const kimiMessages = this.convertMessages(messages, thinking);
 		const kimiTools = this.convertTools(options.tools);
 

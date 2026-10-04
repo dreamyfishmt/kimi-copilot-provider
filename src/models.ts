@@ -78,9 +78,30 @@ export function getModelTokenBudget(model: KimiModelInfo) {
         maxOutputTokens,
     };
 }
+function createReasoningEffortSchema() {
+    return {
+        properties: {
+            reasoningEffort: {
+                type: "string",
+                title: "Thinking Effort",
+                enum: ["default", "low", "high", "max"],
+                enumItemLabels: ["Default", "Low", "High", "Max"],
+                default: "default",
+                description: "Reasoning effort. Default uses the server default.",
+                group: "navigation",
+            },
+        },
+    };
+}
+
+// Supported by the current VS Code runtime, but not yet a stable public API.
+type KimiChatInformation = vscode.LanguageModelChatInformation & {
+    configurationSchema?: ReturnType<typeof createReasoningEffortSchema>;
+};
+
 export function toLanguageModelChatInformation(
 	model: KimiModelInfo,
-): vscode.LanguageModelChatInformation {
+): KimiChatInformation {
 	const budget = getModelTokenBudget(model);
 
 	return {
@@ -95,5 +116,8 @@ export function toLanguageModelChatInformation(
         maxInputTokens: budget.maxInputTokens,
         maxOutputTokens: budget.maxOutputTokens,
         capabilities: model.capabilities,
+        ...(model.supportsReasoningEffort
+            ? { configurationSchema: createReasoningEffortSchema() }
+            : {}),
     };
 }

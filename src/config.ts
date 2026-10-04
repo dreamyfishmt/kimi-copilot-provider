@@ -33,9 +33,11 @@ export function getSendDeviceInfoEnabled(): boolean {
         .get<unknown>("sendDeviceInfo", false) === true;
 }
 
-export function getReasoningEffort(): ReasoningEffort | undefined {
-    const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
-    const value = config.get<unknown>("reasoningEffort", "default");
+export function getReasoningEffort(selectedValue?: unknown): ReasoningEffort | undefined {
+    const value = selectedValue === undefined
+        ? vscode.workspace.getConfiguration(CONFIG_SECTION)
+            .get<unknown>("reasoningEffort", "default")
+        : selectedValue;
 
     switch (value) {
         case "default":
@@ -46,7 +48,7 @@ export function getReasoningEffort(): ReasoningEffort | undefined {
             return value;
         default:
             throw new Error(
-                "Invalid kimi.reasoningEffort. Use default, low, high, or max.",
+                "Invalid reasoning effort. Use default, low, high, or max.",
             );
     }
 }

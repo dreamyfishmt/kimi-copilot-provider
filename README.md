@@ -90,7 +90,9 @@ All settings below use application scope.
 | `kimi.reasoningEffort` | `default` | `default`, `low`, `high`, or `max`. Default omits `reasoning_effort` and uses the server default. |
 | `kimi.sendDeviceInfo` | `false` | Opt in to sending hostname, device/OS details, and a random session device ID to the configured API endpoint. |
 
-Reasoning effort is applied only when thinking is enabled and the model supports configurable effort. It is omitted for HighSpeed. This setting appears in VS Code Settings; it does not add a thinking-effort submenu to the chat model picker.
+Supported models expose a **Thinking Effort** menu in the chat model picker with Default, Low, High, and Max options. Default omits `reasoning_effort` and uses the server default, even if the global setting is different. The global `kimi.reasoningEffort` setting is a fallback when the request contains no effort selection. Request-level `modelOptions.reasoningEffort` overrides the model picker value. Effort is applied only when thinking is enabled and is omitted for HighSpeed, which does not expose this menu.
+
+The picker integration uses the current runtime's non-public `configurationSchema` and `modelConfiguration` fields without adding a `chatProvider` proposal declaration. Verify menu display and request values after VS Code upgrades. After installing an updated VSIX, reload the window and select the model in a new chat if an existing chat still shows the old menu.
 
 Example user settings:
 
