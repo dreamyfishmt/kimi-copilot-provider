@@ -6,6 +6,16 @@ Use your Kimi Code subscription in VS Code Chat and Agent mode through a custom 
 
 Extension ID: `dreamyfishmt.kimi-lm-provider`. This is not an official Kimi or GitHub extension.
 
+## Why use this extension?
+
+- **Use your Kimi Code subscription inside VS Code.** Connect with your own subscription API key and work in the existing Chat and Agent interface. With a Kimi Code endpoint selected, model requests go directly to Kimi Code without an extension-operated relay.
+- **Keep your coding workflow in one place.** Stream replies, attach screenshots or images to models that support them, and let Agent mode use VS Code's tools to work with your project. You can select Kimi alongside other configured chat providers without moving to a separate chat application.
+- **Follow the models available through your API.** Automatic discovery reads model names, context limits, and supported capabilities from the server. Account- and endpoint-specific caches make previously discovered models available while refreshing, and manual refresh lets you check for catalog updates without editing a model list.
+- **Control how much the model thinks and writes.** Supported models expose thinking-effort choices in the model picker, while a configurable output-token budget reserves room for the response within the context window. When the required VS Code API is available, thinking is displayed through native thinking parts.
+- **See quota usage before it interrupts your work.** The status bar shows five-hour and weekly account usage. Its hover card adds progress indicators, reset countdowns, and refresh/console shortcuts. Independent polling keeps quota queries separate from chat, and failed refreshes preserve the last values with a stale warning. Server-reported per-request input/output token counts are also logged and forwarded to Copilot Chat, whose native display depends on the installed version.
+- **Diagnose the configuration you actually use.** One command checks the loaded account, live model discovery, and both ordinary and streaming responses. Stage results and a copyable sanitized report help you locate setup problems and provide useful issue reports without copying your API key or chat content. Diagnostic requests consume account quota.
+- **Keep credentials and optional device details under control.** API keys are entered through VS Code's native secret provider field; the extension does not persist another copy in its model cache. Hostname, OS/device details, and device-ID headers are disabled by default. Choose the China or overseas Kimi Code endpoint, or a compatible custom endpoint, for your setup.
+
 ## Current release status
 
 The current source declares the proposed VS Code API `languageModelThinkingPart`. Local debugging has been exercised, but this is not yet a standard Marketplace-ready build. VS Code's [proposed API guidance](https://code.visualstudio.com/api/advanced-topics/using-proposed-api) says extensions using proposed APIs should not be published to the Marketplace.
@@ -37,9 +47,19 @@ This extension provides chat models; it does not replace Copilot's inline code c
 
 Kimi Code subscription keys and Kimi Open Platform keys are not interchangeable. See the [Kimi Code model documentation](https://www.kimi.com/code/docs/en/kimi-code/models.html) for current model and subscription availability.
 
+## Download and install the latest VSIX
+
+You can install a prebuilt package directly from [GitHub Releases](https://github.com/dreamyfishmt/kimi-copilot-provider/releases), without building from source.
+
+1. Open the Releases page and choose the newest published release. Nightly builds are marked **Pre-release**; check the release list for the newest nightly rather than relying on GitHub's **Latest** badge, which is reserved for stable releases.
+2. Expand **Assets** and download the `.vsix` file, such as `kimi-lm-provider-X.Y.Z-nightly.vsix`. Choose the VSIX package rather than the source-code ZIP or tarball.
+3. In VS Code Insiders, open the Extensions view, click **…**, choose **Install from VSIX…**, and select the downloaded file. Reload the window when prompted. Use the same steps to install a newer VSIX over an existing installation.
+
+The current build still requires the proposed thinking API. Enable it for `dreamyfishmt.kimi-lm-provider` following the [official installation instructions](https://code.visualstudio.com/api/advanced-topics/using-proposed-api#sharing-extensions-using-the-proposed-api), then complete the configuration below.
+
 ## Quick start and first chat
 
-1. Install a release VSIX through **Extensions: Install from VSIX**, or follow **Run from source** below. This build still requires the proposed thinking API: for a VSIX, use VS Code Insiders and enable `dreamyfishmt.kimi-lm-provider` following the [official installation instructions](https://code.visualstudio.com/api/advanced-topics/using-proposed-api#sharing-extensions-using-the-proposed-api).
+1. Download and install the release VSIX as described above, or follow **Run from source** below.
 2. Open Settings, search for `@ext:dreamyfishmt.kimi-lm-provider`, and choose **Kimi Code** (overseas) or **Kimi Code CN** (China).
 3. Open Chat → **Manage Language Models** from the model picker, add **Kimi**, and enter your **Kimi Code subscription API key** from the [console](https://www.kimi.com/code/console). The native provider UI handles the secret; do not add it to user settings or repository files.
 4. Select a Kimi model. If models do not appear, reopen the picker or run **Kimi: Refresh Models**.

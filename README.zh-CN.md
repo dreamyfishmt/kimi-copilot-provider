@@ -6,6 +6,16 @@
 
 扩展 ID：`dreamyfishmt.kimi-lm-provider`。本项目并非 Kimi 或 GitHub 官方扩展。
 
+## 为什么选择这个插件？
+
+- **在 VS Code 内使用已有的 Kimi Code 订阅。** 填写自己的订阅 API Key，即可在现有 Chat 和 Agent 界面中使用 Kimi。选择 Kimi Code 端点时，模型请求直接发送给 Kimi Code，无需经过扩展运营的中转服务。
+- **编码、聊天和工具调用集中在同一个工作流。** 支持流式回复，可向支持图片的模型提供截图或图片，也可让 Agent 使用 VS Code 的工具处理项目。在模型选择器中切换 Kimi 与其他已配置的聊天提供商，无需转到独立聊天应用。
+- **自动跟随 API 提供的模型目录。** 从服务端读取模型名称、上下文限制和支持的能力。按账号与端点隔离的缓存，让已发现的模型在后台刷新期间仍可使用；手动刷新即可检查目录更新，无需自己编辑模型列表。
+- **按任务调整思考强度与输出预算。** 支持的模型在选择器中提供思考强度选项；可配置的输出 Token 预算会在上下文窗口内为回复预留空间。所需 VS Code API 可用时，通过原生思考组件展示推理过程。
+- **在额度影响工作前掌握用量。** 状态栏显示五小时和每周账号用量，悬停卡片提供进度条、重置倒计时及刷新、控制台快捷入口。额度独立轮询，不与聊天请求相互阻塞；刷新失败时保留上次数据并标记过期。每次请求由服务端返回的输入、输出 Token 数也会记录并传给 Copilot Chat，原生显示效果取决于安装版本。
+- **一键诊断正在使用的配置。** 检查已加载账号、实时模型发现，以及普通响应和流式响应。分阶段结果和可复制的脱敏报告，帮助定位配置问题，也便于反馈问题，无需复制 API Key 或聊天内容。诊断请求会消耗账号额度。
+- **密钥与可选设备信息由你控制。** API Key 通过 VS Code 原生秘密字段配置，扩展不会在模型缓存中另存一份密钥。主机名、系统和设备详情、设备 ID 请求头默认关闭；可按使用环境选择 Kimi Code 中国、海外端点或兼容的自定义端点。
+
 ## 当前发布状态
 
 当前源码声明使用 VS Code 实验性 API `languageModelThinkingPart`。已进行本地开发调试，但尚未达到标准 Marketplace 发布条件。[VS Code 官方说明](https://code.visualstudio.com/api/advanced-topics/using-proposed-api)要求使用实验性 API 的扩展不要发布到 Marketplace。
@@ -37,9 +47,19 @@
 
 Kimi Code 订阅 Key 与 Kimi 开放平台 Key 不能互换。模型与套餐信息请参考 [Kimi Code 模型文档](https://www.kimi.com/code/docs/en/kimi-code/models.html)。
 
+## 下载并安装最新版 VSIX
+
+可以直接从 [GitHub Releases](https://github.com/dreamyfishmt/kimi-copilot-provider/releases) 下载已打包的插件，无需自行编译源码。
+
+1. 打开 Releases 页面，选择最新发布的版本。Nightly 标有 **Pre-release（预发布）**；查找最新 nightly 时请查看发布列表，不要只看 GitHub 的 **Latest** 标记，该标记用于正式版。
+2. 展开 **Assets（附件）**，下载以 `.vsix` 结尾的文件，例如 `kimi-lm-provider-X.Y.Z-nightly.vsix`。请选择 VSIX 安装包，而不是源码 ZIP 或 tarball。
+3. 在 VS Code Insiders 中打开扩展面板，点击 **…**，选择 **Install from VSIX…（从 VSIX 安装…）**，选中刚下载的文件，按提示重载窗口。已有旧版本时，也可以用同样步骤安装新版 VSIX 进行更新。
+
+当前版本仍依赖实验性思考 API。请按[官方安装说明](https://code.visualstudio.com/api/advanced-topics/using-proposed-api#sharing-extensions-using-the-proposed-api)为 `dreamyfishmt.kimi-lm-provider` 启用该 API，然后继续完成下方配置。
+
 ## 快速开始：完成配置并开始聊天
 
-1. 通过 **Extensions: Install from VSIX** 安装发布版本的 VSIX，或按照下文“从源码运行”启动开发版本。当前 VSIX 仍依赖实验性思考 API，需要使用 VS Code Insiders，并按[官方安装说明](https://code.visualstudio.com/api/advanced-topics/using-proposed-api#sharing-extensions-using-the-proposed-api)为 `dreamyfishmt.kimi-lm-provider` 启用该 API。
+1. 按上方步骤下载并安装发布版本的 VSIX，或按照下文“从源码运行”启动开发版本。
 2. 打开设置，搜索 `@ext:dreamyfishmt.kimi-lm-provider`。海外访问选择 **Kimi Code**，中国访问选择 **Kimi Code CN**。
 3. 打开 Chat，从模型选择器进入 **Manage Language Models（管理语言模型）**，添加 **Kimi**，填写控制台中的 **Kimi Code 订阅 API Key**。密钥由 VS Code 原生提供商配置界面管理，不要写入用户设置或仓库文件。
 4. 选择一个 Kimi 模型。如果没有出现模型，重新打开模型选择器，或运行 **Kimi: Refresh Models**。
