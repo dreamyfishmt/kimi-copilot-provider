@@ -272,16 +272,16 @@ pnpm dlx @vscode/vsce package --no-dependencies
 | `vX.Y.Z` | 正式版，标为 Latest | `kimi-copilot-provider-X.Y.Z-stable.vsix` |
 | `nightly-vX.Y.Z` | 预发布，不标为 Latest | `kimi-copilot-provider-X.Y.Z-nightly.vsix`，标为预发布包 |
 
-标签版本必须与 `package.json` 完全一致。例如当前版本为 `0.5.7`，可在希望发布的提交上选择一个渠道：
+标签版本必须与 `package.json` 完全一致。例如当前版本为 `0.5.8`，可在希望发布的提交上选择一个渠道：
 
 ```sh
 # 正式版
-git tag v0.5.7
-git push origin v0.5.7
+git tag v0.5.8
+git push origin v0.5.8
 
 # Nightly
-git tag nightly-v0.5.7
-git push origin nightly-v0.5.7
+git tag nightly-v0.5.8
+git push origin nightly-v0.5.8
 ```
 
 创建标签前先提交工作流和需要发布的源码。每次新发布使用新标签；修改版本时同步更新 `package.json` 和 `package-lock.json`。工作流校验版本，用 `npm ci` 安装依赖，编译并运行测试，再用固定版本的 `vsce` 打包。检查失败会阻止发布。重新运行成功标签的工作流会更新已有 Release 并替换 VSIX 附件。
