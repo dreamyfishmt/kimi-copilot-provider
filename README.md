@@ -221,7 +221,7 @@ Run `pnpm test` for parser, cache, account isolation, refresh/timeout, and chat 
 
 The extension emits `LanguageModelThinkingPart` for `reasoning_content` and `LanguageModelTextPart` for answer text. It does not wrap reasoning in HTML `<details>` blocks.
 
-When VS Code returns thinking parts alongside an assistant tool call, the extension joins those parts and sends them back as `reasoning_content`. If none are present while thinking is enabled, it currently inserts `(reasoning not preserved in chat history)`. This placeholder is not the original reasoning text. If the proposed thinking API is unavailable, reasoning display is skipped while ordinary answer text is still emitted.
+When VS Code returns thinking parts alongside an assistant tool call, the extension joins those parts and sends them back as `reasoning_content`. If none are present while thinking is enabled, it sends `reasoning_content: ""` without inserting placeholder text. If the proposed thinking API is unavailable, reasoning display is skipped while ordinary answer text is still emitted.
 
 Tool call arguments are accumulated from streamed deltas and reported to VS Code for execution. Streaming and history handling should be tested in the intended VS Code version before release.
 
@@ -278,16 +278,16 @@ The [Release VSIX workflow](.github/workflows/release.yml) runs when a release t
 | `vX.Y.Z` | Stable release, marked Latest | `kimi-lm-provider-X.Y.Z-stable.vsix` |
 | `nightly-vX.Y.Z` | Prerelease, never marked Latest | `kimi-lm-provider-X.Y.Z-nightly.vsix`, marked as a prerelease package |
 
-The tag version must exactly match `package.json`. For example, with the current version `0.5.3`, publish either channel from the commit you want to release:
+The tag version must exactly match `package.json`. For example, with the current version `0.5.4`, publish either channel from the commit you want to release:
 
 ```sh
 # Stable
-git tag v0.5.3
-git push origin v0.5.3
+git tag v0.5.4
+git push origin v0.5.4
 
 # Nightly
-git tag nightly-v0.5.3
-git push origin nightly-v0.5.3
+git tag nightly-v0.5.4
+git push origin nightly-v0.5.4
 ```
 
 Commit the workflow and all intended source changes before creating a tag. Each new release needs a new tag; update `package.json` and `package-lock.json` together when changing the version. The workflow validates the version, installs dependencies with `npm ci`, compiles and runs tests, then packages the extension with a pinned version of `vsce`. A failed check prevents publication. Rerunning a successful tag workflow updates the existing release and replaces its VSIX asset.
