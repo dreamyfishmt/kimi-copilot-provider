@@ -18,6 +18,7 @@ test('model picker selection reaches the HTTP request body', async () => {
         return id === 'vscode' ? vscode : originalLoad.call(this, id, ...args);
     };
     globalThis.fetch = async (_url, init) => {
+        if (_url.endsWith('/models')) return new Response('{}', { status: 503 });
         requests++;
         body = JSON.parse(init.body);
         return new Response('data: [DONE]\n\n', { status: 200 });
@@ -26,7 +27,7 @@ test('model picker selection reaches the HTTP request body', async () => {
         const { KIMI_MODELS, toLanguageModelChatInformation } = require('../out/models.js');
         const { KimiChatProvider } = require('../out/provider.js');
         const provider = new KimiChatProvider();
-        const models = provider.provideLanguageModelChatInformation({ modelConfiguration: { apiKey: 'test-only' } });
+        const models = await provider.provideLanguageModelChatInformation({ modelConfiguration: { apiKey: 'test-only' } });
         for (const model of KIMI_MODELS) {
             const info = toLanguageModelChatInformation(model);
             assert.equal(Boolean(info.configurationSchema), model.supportsReasoningEffort);

@@ -1,7 +1,12 @@
 .vscode/
+.github/
+.pnpm-store/
 src/
 tests/
 node_modules/
 tsconfig.json
 *.map
+.env
+.env.*
 .gitignore
+package-lock.json

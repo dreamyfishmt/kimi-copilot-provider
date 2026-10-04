@@ -1,0 +1,114 @@
+name: Release VSIX
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - 'nightly-v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Check out tagged commit
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Validate tag and package version
+        id: metadata
+        run: |
+          if [[ "$GITHUB_REF_NAME" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            channel=stable
+            tag_version="${BASH_REMATCH[1]}"
+          elif [[ "$GITHUB_REF_NAME" =~ ^nightly-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            channel=nightly
+            tag_version="${BASH_REMATCH[1]}"
+          else
+            echo "::error::Use vX.Y.Z or nightly-vX.Y.Z for release tags."
+            exit 1
+          fi
+
+          package_version=$(node -p "require('./package.json').version")
+          if [[ "$tag_version" != "$package_version" ]]; then
+            echo "::error::Tag version $tag_version does not match package.json version $package_version."
+            exit 1
+          fi
+
+          package_name=$(node -p "require('./package.json').name")
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "asset=$package_name-$package_version-$channel.vsix" >> "$GITHUB_OUTPUT"
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Compile and test
+        run: npm test
+
+      - name: Package VSIX
+        env:
+          CHANNEL: ${{ steps.metadata.outputs.channel }}
+          ASSET: ${{ steps.metadata.outputs.asset }}
+        run: |
+          package_flags=(--no-dependencies --out "$ASSET")
+          if [[ "$CHANNEL" == nightly ]]; then
+            package_flags+=(--pre-release)
+          fi
+          npm exec --yes --package=@vscode/vsce@4.0.0 -- vsce package "${package_flags[@]}"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CHANNEL: ${{ steps.metadata.outputs.channel }}
+          ASSET: ${{ steps.metadata.outputs.asset }}
+        run: |
+          release_flags=(--prerelease=false --latest)
+          if [[ "$CHANNEL" == nightly ]]; then
+            release_flags=(--prerelease --latest=false)
+          fi
+
+          cat > "$RUNNER_TEMP/release-notes.md" <<EOF
+          Channel: $CHANNEL
+          Source commit: $GITHUB_SHA
+
+          Download the attached VSIX and use **Extensions: Install from VSIX** in VS Code.
+
+          This extension currently requires the proposed languageModelThinkingPart API.
+          See the README and [VS Code proposed API installation instructions](https://code.visualstudio.com/api/advanced-topics/using-proposed-api#sharing-extensions-using-the-proposed-api).
+          EOF
+
+          # Re-running a successful tag build refreshes the existing release asset.
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$ASSET" --clobber
+            gh release edit "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file "$RUNNER_TEMP/release-notes.md" \
+              "${release_flags[@]}"
+          else
+            gh release create "$GITHUB_REF_NAME" "$ASSET" \
+              --verify-tag \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file "$RUNNER_TEMP/release-notes.md" \
+              "${release_flags[@]}"
+          fi

@@ -12,7 +12,8 @@ Resolve this dependency and verify normal installed-extension behavior before pu
 
 ## Features
 
-- Four Kimi Code models in the chat model picker.
+- Automatic model discovery, with account/endpoint-scoped caching and manual refresh.
+- Status bar showing five-hour and weekly account usage, refreshed every 60 seconds independently of chat.
 - Streaming text responses and Agent tool calls.
 - Native thinking parts when the required VS Code API is available.
 - Image attachments, plus text/plain and JSON data attachments.
@@ -59,6 +60,12 @@ The provider returns no models until an API key has been configured. Configure t
 
 ## Models and context budgets
 
+Models are fetched from `<baseUrl>/models` when VS Code supplies the configured API key. The server determines model IDs, display names, context lengths, image/tool capabilities, thinking support, and reasoning effort choices/defaults. Only Chat Completions-compatible models are advertised; models declaring other protocols are skipped. Missing metadata for known models uses the compatibility information below; unknown models use conservative capabilities and a 32K context fallback.
+
+A successful response replaces the catalog, including when it is empty. Public model metadata is cached in VS Code extension storage, isolated by a SHA-256 fingerprint of the endpoint and key; the key itself is not stored there. Cached models appear immediately while a background refresh runs. Network/format errors retain a cache, or use the built-in list below for Coding endpoints when no cache exists. The model details identify cached/fallback data. Authentication/access errors are reported separately. Use **Kimi: Refresh Models** to retry or discover newly available models. Changing the key or endpoint also refreshes discovery.
+
+The following table describes the built-in fallback, not the current server catalog:
+
 | Model ID | Display name | Extension context budget | Configurable reasoning effort |
 | --- | --- | ---: | --- |
 | `kimi-for-coding` | Kimi K2.8 Preview | 1,048,576 | Yes |
@@ -74,7 +81,7 @@ The input budget is calculated as:
 maxInputTokens = contextWindow - configured maxOutputTokens
 ```
 
-With the default output budget of 32,768, the input budget is 229,376 for 256K models and 1,015,808 for 1M models. If the caller requests a smaller output limit, the extension uses that smaller value; it never raises the request above the configured output budget.
+With the default output budget of 32,768, the input budget is 229,376 for 256K models and 1,015,808 for 1M models. For smaller discovered contexts, the output reservation is capped below the context size to keep a positive input budget. If the caller requests a smaller output limit, the extension uses that smaller value; it never raises the request above the configured output budget.
 
 The output setting's allowed range is an extension policy, not a guarantee that every model accepts 65,536 output tokens. Token counting is approximate, so requests near the context limit can still exceed server limits.
 
@@ -89,8 +96,9 @@ All settings below use application scope.
 | `kimi.maxOutputTokens` | `32768` | Integer from 1 to 65536. Reserves output space and caps chat output. |
 | `kimi.reasoningEffort` | `default` | `default`, `low`, `high`, or `max`. Default omits `reasoning_effort` and uses the server default. |
 | `kimi.sendDeviceInfo` | `false` | Opt in to sending hostname, device/OS details, and a random session device ID to the configured API endpoint. |
+| `kimi.showUsageStatusBar` | `true` | Show five-hour and weekly usage. Disabling it also stops usage polling. |
 
-Supported models expose a **Thinking Effort** menu in the chat model picker with Low, High, and Max options. High is this extension's default and sends `reasoning_effort: "high"`; it does not mean the server default. Copilot CLI / Agent Host rebuilds this menu as **Thinking Level** and filters out custom values such as `default`, so the menu advertises only concrete supported levels. Previously saved selections remain in effect.
+Supported models expose a **Thinking Effort** menu using the server's advertised levels and concrete default. The extension understands None, Minimal, Low, Medium, High, Xhigh, and Max, but only advertises levels supported by that model. Copilot CLI / Agent Host rebuilds this menu as **Thinking Level** and filters out custom values such as `default`. Previously saved selections remain in effect; unsupported selections produce an actionable error before sending a request. Models declaring always-on thinking cannot have it disabled.
 
 The global `kimi.reasoningEffort` setting is a fallback when the request contains no effort selection; its `default` value still omits `reasoning_effort`. Request-level `modelOptions.reasoningEffort` overrides the model picker value. Effort is applied only when thinking is enabled and is omitted for HighSpeed, which does not expose this menu.
 
@@ -134,6 +142,9 @@ Changing a preset preserves the stored custom URL. Existing users who previously
 Open the Command Palette and search for:
 
 - **Kimi: Test Connection**
+- **Kimi: Refresh Models**
+- **Kimi: Refresh Usage**
+- **Kimi: Show Usage Actions**
 - **Kimi Code: Set API Endpoint to Global (kimi.ai)**
 - **Kimi Code: Set API Endpoint to China (kimi.com)**
 - **Kimi: Set Custom API Endpoint**
@@ -143,6 +154,16 @@ The two Moonshot endpoint commands are also present but do not provide complete 
 **Test Connection** asks for a key for that test only; it does not save provider credentials. The current implementation sends a non-streaming `Ping` to `kimi-for-coding` with an output limit of one token and thinking disabled. Success checks basic request connectivity only. It does not validate the selected chat model, streaming, reasoning effort, or multi-turn Agent tools.
 
 For a fuller check, start a new chat with an entitled model, verify a text response, then ask Agent mode to read a test file without modifying it. During development, inspect the outgoing request to confirm the model ID, endpoint, output limit, and reasoning effort.
+
+## Account usage status bar
+
+After VS Code supplies a configured provider key, the status bar shows `Kimi · 5h 32% · 周 68%`. Both values mean **used percentage of the account subscription quota**, not tokens consumed by the selected model or current chat. It stays visible when another chat model is selected. Hover for reset times (local timezone), last successful update, and any query error. Click to refresh or open the Kimi console.
+
+Usage is read from `<baseUrl>/usages` immediately and every 60 seconds, with a separate 10-second timeout and no overlapping queries. It never blocks or cancels chat. Failed refreshes keep previous values with a stale indicator; without a successful result, the item says usage is unavailable. Missing windows display `—`, never a fabricated zero. Failures go to the **Kimi** output channel without automatic error popups.
+
+Changing credentials/endpoints clears quota data and cancels old quota requests. Hiding the item stops polling. On reload it waits for VS Code to supply credentials; it does not read `.env` or persist a second copy of the API key. A provider callback explicitly clearing its key hides the item; an unconfigured vendor scan is ignored. With multiple Kimi provider configurations, the status bar follows the most recently prepared configuration. Custom and Moonshot endpoints may not implement this subscription quota API; that does not affect chat.
+
+Run `pnpm test` for parser, cache, account isolation, refresh/timeout, and chat regression tests. Development `.env` files are excluded from Git and VSIX packages.
 
 ## Thinking and tool calls
 
@@ -194,6 +215,31 @@ Before a Marketplace release:
 4. Choose the release version and review the VSIX contents, including README, license, icon, and compiled entry point.
 
 Follow the official [publishing guide](https://code.visualstudio.com/api/working-with-extensions/publishing-extension) after those checks. No Marketplace publication is performed by the build or package commands above.
+
+## Automated GitHub Releases
+
+The [Release VSIX workflow](.github/workflows/release.yml) runs when a release tag is pushed. Branch pushes alone do not publish a release. Tags can point to commits on any branch, including `nightly`: the tag name selects the release channel, and the tagged commit supplies the source and workflow.
+
+| Tag | GitHub Release | VSIX |
+| --- | --- | --- |
+| `vX.Y.Z` | Stable release, marked Latest | `kimi-lm-provider-X.Y.Z-stable.vsix` |
+| `nightly-vX.Y.Z` | Prerelease, never marked Latest | `kimi-lm-provider-X.Y.Z-nightly.vsix`, marked as a prerelease package |
+
+The tag version must exactly match `package.json`. For example, with the current version `0.5.0`, publish either channel from the commit you want to release:
+
+```sh
+# Stable
+git tag v0.5.0
+git push origin v0.5.0
+
+# Nightly
+git tag nightly-v0.5.0
+git push origin nightly-v0.5.0
+```
+
+Commit the workflow and all intended source changes before creating a tag. Each new release needs a new tag; update `package.json` and `package-lock.json` together when changing the version. The workflow validates the version, installs dependencies with `npm ci`, compiles and runs tests, then packages the extension with a pinned version of `vsce`. A failed check prevents publication. Rerunning a successful tag workflow updates the existing release and replaces its VSIX asset.
+
+The workflow uses GitHub's built-in `GITHUB_TOKEN` with `contents: write`; no personal access token or Marketplace secret is needed. Enable GitHub Actions in the repository and ensure repository/organization policy permits the workflow's write permission. GitHub release channels do not change this extension's VS Code version or proposed API requirements described above.
 
 ## License and acknowledgements
 

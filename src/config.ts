@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 export const CONFIG_SECTION = "kimi";
 export const ENDPOINT_KEY = "endpoint";
 export const API_BASE_URL_KEY = "apiBaseUrl";
-export type ReasoningEffort = "low" | "high" | "max";
+export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 export const PRESET_URLS = {
     kimiCode: "https://api.kimi.ai/coding/v1",
     kimiCodeCN: "https://api.kimi.com/coding/v1",
@@ -43,12 +43,16 @@ export function getReasoningEffort(selectedValue?: unknown): ReasoningEffort | u
         case "default":
             return undefined;
         case "low":
+        case "none":
+        case "minimal":
+        case "medium":
+        case "xhigh":
         case "high":
         case "max":
             return value;
         default:
             throw new Error(
-                "Invalid reasoning effort. Use default, low, high, or max.",
+                "Invalid reasoning effort. Use default or a supported model effort level.",
             );
     }
 }

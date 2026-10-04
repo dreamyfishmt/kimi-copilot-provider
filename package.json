@@ -2,7 +2,7 @@
 	"name": "kimi-lm-provider",
 	"displayName": "Kimi Language Model Provider for Copilot",
 	"description": "Registers Kimi (Moonshot AI) models as VS Code language model providers for Copilot Chat",
-	"version": "0.4.5",
+	"version": "0.5.0",
 	"publisher": "dreamyfishmt",
 	"license": "MIT",
 	"repository": "https://github.com/dreamyfishmt/kimi-copilot-provider",
@@ -29,6 +29,12 @@
 		"configuration": {
 			"title": "Kimi",
 			"properties": {
+				"kimi.showUsageStatusBar": {
+					"type": "boolean",
+					"default": true,
+					"scope": "application",
+					"description": "Show Kimi Code account usage in the status bar. Refreshes every 60 seconds. Disabling stops usage polling."
+				},
 				"kimi.endpoint": {
 					"type": "string",
 					"enum": [
@@ -110,6 +116,9 @@
 			}
 		],
 		"commands": [
+			{ "command": "kimi.refreshModels", "title": "Kimi: Refresh Models" },
+			{ "command": "kimi.refreshUsage", "title": "Kimi: Refresh Usage" },
+			{ "command": "kimi.usageActions", "title": "Kimi: Show Usage Actions" },
 			{
 				"command": "kimi.testConnection",
 				"title": "Kimi: Test Connection"
@@ -137,7 +146,8 @@
 		]
 	},
 	"scripts": {
-		"vscode:prepublish": "pnpm run compile",
+		"test": "tsc -p ./ && node --test tests/*.cjs",
+		"vscode:prepublish": "tsc -p ./",
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./",
 		"build:local": "pnpm dlx @vscode/vsce package --no-dependencies"

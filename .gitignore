@@ -1,4 +1,29 @@
-out/
+# Dependencies and local package-manager caches
 node_modules/
+.pnpm-store/
+.npm/
+
+# Compiled extension and packaged releases
+/out/
 *.vsix
+*.tsbuildinfo
+
+# Test coverage and logs
+coverage/
+.nyc_output/
+*.log
+
+# Local environment files (keep credential-free templates trackable)
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# Operating-system and editor temporary files
 .DS_Store
+Thumbs.db
+Desktop.ini
+*~
+*.swp
+*.swo

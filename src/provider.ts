@@ -9,6 +9,8 @@ import {
 import { getApiBaseUrl, getReasoningEffort } from "./config.js";
 import { KIMI_MODELS, toLanguageModelChatInformation, getModelTokenBudget } from "./models.js";
 import { assistantToolCallThinkingPayload } from "./reasoning.js";
+import { accountId, ModelCatalog } from "./catalog.js";
+import type { Account } from "./usage.js";
 
 // Compatibility fields used by the current VS Code model picker (non-public API).
 type KimiResponseOptions = vscode.ProvideLanguageModelChatResponseOptions & {
@@ -34,7 +36,7 @@ function getObjectProperty(
 }
 
 function getApiKey(
-	options: vscode.PrepareLanguageModelChatModelOptions,
+	options: unknown,
 ): string | undefined {
 	// VS Code 1.120+ passes provider config as modelConfiguration
 	const modelConfig = getObjectProperty(options, "modelConfiguration");
@@ -151,6 +153,56 @@ function mapKimiApiError(error: KimiApiError): Error {
 
 export class KimiChatProvider implements vscode.LanguageModelChatProvider {
 	private apiKey: string | undefined;
+	private readonly catalogs = new Map<string, ModelCatalog>();
+	private bindings = new WeakMap<vscode.LanguageModelChatInformation, ModelCatalog>();
+	private activeCatalog: ModelCatalog | undefined;
+	private readonly accountChangedEmitter = new vscode.EventEmitter<Account | undefined>();
+	readonly onDidChangeAccount = this.accountChangedEmitter.event;
+	constructor(private readonly storage?: vscode.Memento, private readonly log: (message: string) => void = () => {}) {}
+
+	get account(): Account | undefined {
+		return this.apiKey ? { apiKey: this.apiKey, baseUrl: getApiBaseUrl() } : undefined;
+	}
+
+	private catalogFor(key: string): ModelCatalog {
+		const baseUrl = getApiBaseUrl();
+		const id = accountId(key, baseUrl);
+		let catalog = this.catalogs.get(id);
+		if (!catalog) {
+			catalog = new ModelCatalog(key, baseUrl, this.storage, () => this.notifyModelsChanged(), this.log);
+			this.catalogs.set(id, catalog);
+		}
+		return catalog;
+	}
+
+	configurationChanged(): void {
+		if (this.apiKey) {
+			this.activeCatalog = this.catalogFor(this.apiKey);
+			void this.activeCatalog.refresh();
+		}
+		this.accountChangedEmitter.fire(this.account);
+		this.notifyModelsChanged();
+	}
+
+	async refreshModels(): Promise<void> {
+		if (!this.activeCatalog) {
+			vscode.window.showInformationMessage("请先在模型选择器中配置 Kimi API Key。");
+			return;
+		}
+		await this.activeCatalog.refresh();
+		if (this.activeCatalog.error) vscode.window.showWarningMessage(`Kimi 模型刷新失败：${this.activeCatalog.error}`);
+		else vscode.window.showInformationMessage(`Kimi：已获取 ${this.activeCatalog.models.length} 个兼容模型。`);
+	}
+
+	dispose(): void {
+		this.apiKey = undefined;
+		this.activeCatalog = undefined;
+		this.bindings = new WeakMap();
+		for (const catalog of this.catalogs.values()) catalog.dispose();
+		this.catalogs.clear();
+		this.modelsChangedEmitter.dispose();
+		this.accountChangedEmitter.dispose();
+	}
 	private readonly modelsChangedEmitter = new vscode.EventEmitter<void>();
 	readonly onDidChangeLanguageModelChatInformation = this.modelsChangedEmitter.event;
 
@@ -158,22 +210,43 @@ export class KimiChatProvider implements vscode.LanguageModelChatProvider {
 		this.modelsChangedEmitter.fire();
 	}
 
-	provideLanguageModelChatInformation(
+	async provideLanguageModelChatInformation(
 		options: vscode.PrepareLanguageModelChatModelOptions,
 		_token: vscode.CancellationToken,
-	): vscode.ProviderResult<vscode.LanguageModelChatInformation[]> {
+	): Promise<vscode.LanguageModelChatInformation[]> {
 		const key = getApiKey(options);
 		if (!key) {
 			// No API key configured yet — return empty so VS Code doesn't
 			// duplicate model entries during the base vendor scan.
 			// Once the user sets an API key via the model picker, VS Code
 			// will call this method again with the configuration present.
-			this.apiKey = undefined;
+			// A vendor scan without configuration is not a credential deletion.
+			if (getObjectProperty(options, "modelConfiguration") !== undefined || getObjectProperty(options, "configuration") !== undefined) {
+				this.apiKey = undefined;
+				this.activeCatalog = undefined;
+				this.bindings = new WeakMap();
+				for (const catalog of this.catalogs.values()) catalog.dispose();
+				this.catalogs.clear();
+				this.accountChangedEmitter.fire(undefined);
+			}
 			return [];
 		}
 
 		this.apiKey = key;
-		return KIMI_MODELS.map(toLanguageModelChatInformation);
+		const catalog = this.catalogFor(key);
+		if (catalog !== this.activeCatalog) {
+			this.activeCatalog = catalog;
+			this.accountChangedEmitter.fire(this.account);
+		}
+		const models = await catalog.prepare();
+		if (catalog.error && models.length === 0) throw new Error(`Kimi 模型列表不可用：${catalog.error}`);
+		return models.map(model => {
+			const source = catalog.source === "cache" ? "缓存" : catalog.source === "fallback" ? "内置后备" : undefined;
+			const original = toLanguageModelChatInformation(model);
+			const info = { ...original, detail: original.detail + (source || catalog.error ? ` · ${[source, catalog.error].filter(Boolean).join(" · ")}` : "") };
+			this.bindings.set(info, catalog);
+			return info;
+		});
 	}
 
 	async provideLanguageModelChatResponse(
@@ -183,14 +256,18 @@ export class KimiChatProvider implements vscode.LanguageModelChatProvider {
 		progress: vscode.Progress<vscode.LanguageModelResponsePart>,
 		token: vscode.CancellationToken,
 	): Promise<void> {
-		if (!this.apiKey) {
+		const key = getApiKey(options);
+		const boundCatalog = this.bindings.get(model);
+		const requestKey = key ?? boundCatalog?.apiKey ?? this.apiKey;
+		const catalog = requestKey ? this.catalogFor(requestKey) : undefined;
+		if (!catalog || !this.apiKey) {
 			throw new Error(
 				"API key not configured. Configure it via the model picker.",
 			);
 		}
 
-		const client = new KimiApiClient(this.apiKey);
-		const modelDef = KIMI_MODELS.find((m) => m.id === model.id);
+		const client = new KimiApiClient(catalog.apiKey);
+		const modelDef = catalog.models.find((m) => m.id === model.id);
 		if (!modelDef) {
 			throw new Error(`Unknown Kimi model: ${model.id}`);
 		}
@@ -205,6 +282,9 @@ export class KimiChatProvider implements vscode.LanguageModelChatProvider {
 		const reasoningEffort = thinking && modelDef.supportsReasoningEffort
 			? getReasoningEffort(selectedEffort)
 			: undefined;
+		if (reasoningEffort && !modelDef.reasoningEfforts?.includes(reasoningEffort)) {
+			throw new Error(`Reasoning effort '${reasoningEffort}' is not supported by ${model.id}. Select a supported level.`);
+		}
 		const kimiMessages = this.convertMessages(messages, thinking);
 		const kimiTools = this.convertTools(options.tools);
 
@@ -225,7 +305,7 @@ export class KimiChatProvider implements vscode.LanguageModelChatProvider {
         ? Math.min(requestedMaxTokens, budget.maxOutputTokens)
         : budget.maxOutputTokens;
 		const promptCacheKey = getPromptCacheKey(options);
-		const baseUrl = getApiBaseUrl();
+		const baseUrl = catalog.baseUrl;
 		const requireSseDoneMarker = modelDef?.requireSseDoneMarker ?? true;
 
 		try {
@@ -461,6 +541,7 @@ export class KimiChatProvider implements vscode.LanguageModelChatProvider {
 		if (!modelDef?.thinking) {
 			return false;
 		}
+		if (modelDef.thinkingType === "only") return true;
 
 		const mode = readStringOption(options, "thinkingMode");
 		if (mode === "disabled") {

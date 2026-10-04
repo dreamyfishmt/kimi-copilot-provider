@@ -192,6 +192,30 @@ export class KimiApiClient {
 		this.headers = getDefaultHeaders(apiKey);
 	}
 
+	/** Metadata requests have their own timeout/cancellation, independent of chat. */
+	async getMetadata(baseUrl: string, path: "/models" | "/usages", signal?: AbortSignal): Promise<unknown> {
+		const controller = new AbortController();
+		const cancel = () => controller.abort();
+		if (signal?.aborted) cancel();
+		signal?.addEventListener("abort", cancel, { once: true });
+		const timer = setTimeout(cancel, 10_000);
+		try {
+			const response = await fetch(`${baseUrl.replace(/\/+$/, "")}${path}`, {
+				headers: { ...this.headers, Accept: "application/json" },
+				signal: controller.signal,
+				redirect: "error",
+			});
+			if (!response.ok) {
+				// Do not log arbitrary response bodies: proxies may echo credentials.
+				throw new KimiApiError(`Metadata request failed (HTTP ${response.status}).`, response.status);
+			}
+			return await response.json();
+		} finally {
+			clearTimeout(timer);
+			signal?.removeEventListener("abort", cancel);
+		}
+	}
+
 	async *streamChat(
 		model: string,
 		messages: KimiMessage[],

@@ -9,6 +9,7 @@ import {
 	setPresetEndpoint,
 } from "./config";
 import { KimiChatProvider } from "./provider";
+import { UsageStatusBar } from "./usage";
 
 const DEFAULT_MODEL_ID = "kimi-for-coding";
 
@@ -81,16 +82,32 @@ async function setCustomBaseUrl(provider: KimiChatProvider): Promise<void> {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-	const provider = new KimiChatProvider();
+	const output = vscode.window.createOutputChannel("Kimi");
+	const log = (message: string) => output.appendLine(`[${new Date().toISOString()}] ${message}`);
+	const provider = new KimiChatProvider(context.globalState, log);
+	const usage = new UsageStatusBar(log);
+	const updateUsage = () => usage.configure(provider.account,
+		vscode.workspace.getConfiguration(CONFIG_SECTION).get<boolean>("showUsageStatusBar", true));
 
 	context.subscriptions.push(
+		output, provider, usage,
+		provider.onDidChangeAccount(updateUsage),
 		vscode.lm.registerLanguageModelChatProvider("kimi", provider),
 		vscode.workspace.onDidChangeConfiguration((event) => {
-			if (
-				event.affectsConfiguration("kimi") ||
-				event.affectsConfiguration(`${CONFIG_SECTION}.${API_BASE_URL_KEY}`)
-			) {
+			if (event.affectsConfiguration("kimi.endpoint") || event.affectsConfiguration("kimi.apiBaseUrl")) {
+				provider.configurationChanged();
+			} else if (event.affectsConfiguration("kimi")) {
 				provider.notifyModelsChanged();
+			}
+			if (event.affectsConfiguration("kimi")) updateUsage();
+		}),
+		vscode.commands.registerCommand("kimi.refreshModels", () => provider.refreshModels()),
+		vscode.commands.registerCommand("kimi.refreshUsage", () => usage.refresh()),
+		vscode.commands.registerCommand("kimi.usageActions", async () => {
+			const action = await vscode.window.showQuickPick(["刷新用量", "打开 Kimi 控制台"], { title: "Kimi Code 用量" });
+			if (action === "刷新用量") await usage.refresh();
+			if (action === "打开 Kimi 控制台") {
+				await vscode.env.openExternal(vscode.Uri.parse("https://www.kimi.com/code/console"));
 			}
 		}),
 		vscode.commands.registerCommand("kimi.testConnection", runConnectionTest),
