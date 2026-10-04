@@ -1,8 +1,8 @@
 {
-	"name": "kimi-copilot-provider",
+	"name": "dreamyfishmt-kimi-code",
 	"displayName": "Kimi Code Provider for Copilot",
 	"description": "Bring your Kimi Code subscription to Copilot Chat and Agent mode, with automatic model discovery, thinking controls, live quota monitoring, and configuration diagnostics.",
-	"version": "0.5.9",
+	"version": "0.5.10",
 	"publisher": "dreamyfishmt",
 	"license": "MIT",
 	"repository": "https://github.com/dreamyfishmt/kimi-copilot-provider",
