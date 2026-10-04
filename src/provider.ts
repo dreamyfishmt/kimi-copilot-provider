@@ -6,8 +6,8 @@ import {
 	type KimiMessage,
 	type KimiTool,
 } from "./api.js";
-import { getApiBaseUrl } from "./config.js";
-import { KIMI_MODELS, toLanguageModelChatInformation } from "./models.js";
+import { getApiBaseUrl, getReasoningEffort } from "./config.js";
+import { KIMI_MODELS, toLanguageModelChatInformation, getModelTokenBudget } from "./models.js";
 import { assistantToolCallThinkingPayload } from "./reasoning.js";
 
 interface ToolCallBuilder {
@@ -185,10 +185,32 @@ export class KimiChatProvider implements vscode.LanguageModelChatProvider {
 
 		const client = new KimiApiClient(this.apiKey);
 		const modelDef = KIMI_MODELS.find((m) => m.id === model.id);
+		if (!modelDef) {
+			throw new Error(`Unknown Kimi model: ${model.id}`);
+		}
+
+		const budget = getModelTokenBudget(modelDef);
 		const thinking = this.resolveThinkingEnabled(modelDef, options);
+		const reasoningEffort = thinking && modelDef.supportsReasoningEffort ? getReasoningEffort() : undefined;
 		const kimiMessages = this.convertMessages(messages, thinking);
 		const kimiTools = this.convertTools(options.tools);
-		const maxTokens = options.modelOptions?.maxTokens as number | undefined;
+
+		const requestedMaxTokens = options.modelOptions?.maxTokens;
+
+		if (
+			requestedMaxTokens !== undefined &&
+			(
+				typeof requestedMaxTokens !== "number" ||
+				!Number.isInteger(requestedMaxTokens) ||
+				requestedMaxTokens <= 0
+			)
+		) {
+			throw new Error("maxTokens must be a positive integer.");
+		}
+		const maxTokens =
+    typeof requestedMaxTokens === "number"
+        ? Math.min(requestedMaxTokens, budget.maxOutputTokens)
+        : budget.maxOutputTokens;
 		const promptCacheKey = getPromptCacheKey(options);
 		const baseUrl = getApiBaseUrl();
 		const requireSseDoneMarker = modelDef?.requireSseDoneMarker ?? true;
@@ -202,6 +224,7 @@ export class KimiChatProvider implements vscode.LanguageModelChatProvider {
 					maxTokens,
 					tools: kimiTools,
 					thinking,
+					reasoningEffort,
 					promptCacheKey,
 					toolMode: options.toolMode,
 					requireSseDoneMarker,

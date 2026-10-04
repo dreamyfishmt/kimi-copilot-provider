@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { hostname, type, release, machine, version } from "node:os";
 import { randomUUID } from "node:crypto";
+import type { ReasoningEffort } from "./config.js";
 
 const CHAT_ENDPOINT = "/chat/completions";
 const VERSION = "1.47.0";
@@ -58,8 +59,8 @@ function getDefaultHeaders(apiKey: string): Record<string, string> {
 export type KimiContent =
 	| string
 	| Array<
-			| { type: "text"; text: string }
-			| { type: "image_url"; image_url: { url: string } }
+		| { type: "text"; text: string }
+		| { type: "image_url"; image_url: { url: string } }
 	>;
 
 export interface KimiMessage {
@@ -95,6 +96,7 @@ interface ChatOptions {
 	tools?: KimiTool[];
 	stop?: string[];
 	thinking?: boolean;
+	reasoningEffort?: ReasoningEffort;
 	promptCacheKey?: string;
 	toolMode?: vscode.LanguageModelChatToolMode;
 	/**
@@ -108,24 +110,24 @@ interface KimiStreamChunk {
 	id: string;
 	created: number;
 	model: string;
-		choices: Array<{
-			index: number;
-			delta: {
-				role?: string;
-				content?: string;
-				reasoning_content?: string;
-				tool_calls?: Array<{
-					index: number;
-					id?: string;
-					type?: string;
-					function?: {
-						name?: string;
-						arguments?: string;
-					};
-				}>;
-			};
-			finish_reason: string | null;
-		}>;
+	choices: Array<{
+		index: number;
+		delta: {
+			role?: string;
+			content?: string;
+			reasoning_content?: string;
+			tool_calls?: Array<{
+				index: number;
+				id?: string;
+				type?: string;
+				function?: {
+					name?: string;
+					arguments?: string;
+				};
+			}>;
+		};
+		finish_reason: string | null;
+	}>;
 }
 
 interface KimiResponse {
@@ -278,6 +280,9 @@ export class KimiApiClient {
 
 		if (options?.topP !== undefined) {
 			body.top_p = options.topP;
+		}
+		if (thinking && options?.reasoningEffort !== undefined) {
+			body.reasoning_effort = options.reasoningEffort;
 		}
 		if (options?.maxTokens !== undefined) {
 			body.max_completion_tokens = options.maxTokens;

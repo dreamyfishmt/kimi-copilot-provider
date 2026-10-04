@@ -6,6 +6,7 @@ import {
 	getApiBaseUrl,
 	PRESET_URLS,
 	setApiBaseUrl,
+	setPresetEndpoint,
 } from "./config";
 import { KimiChatProvider } from "./provider";
 
@@ -27,8 +28,8 @@ async function runConnectionTest(): Promise<void> {
 	if (!key) return;
 
 	const client = new KimiApiClient(key.trim());
-	const baseUrl = getApiBaseUrl();
 	try {
+		const baseUrl = getApiBaseUrl();
 		await client.chat(
 			DEFAULT_MODEL_ID,
 			[{ role: "user", content: "Ping" }],
@@ -43,19 +44,21 @@ async function runConnectionTest(): Promise<void> {
 
 async function setBaseUrlAndNotify(
 	provider: KimiChatProvider,
-	url: string,
+	endpoint: keyof typeof PRESET_URLS,
 	label: string,
 ): Promise<void> {
-	await setApiBaseUrl(url);
+	await setPresetEndpoint(endpoint);
 	provider.notifyModelsChanged();
-	vscode.window.showInformationMessage(`Kimi: Switched to ${label} (${url})`);
+	vscode.window.showInformationMessage(`Kimi: Switched to ${label} (${PRESET_URLS[endpoint]})`);
 }
 
 async function setCustomBaseUrl(provider: KimiChatProvider): Promise<void> {
 	const input = await vscode.window.showInputBox({
 		prompt: "Enter custom Kimi API base URL",
-		placeHolder: "https://api.kimi.com/coding/v1",
-		value: getApiBaseUrl(),
+		placeHolder: "https://api.kimi.ai/coding/v1",
+		value: vscode.workspace
+			.getConfiguration(CONFIG_SECTION)
+			.get<string>(API_BASE_URL_KEY, ""),
 		validateInput: (value) => {
 			if (!value || value.trim().length === 0) {
 				return "URL cannot be empty";
@@ -69,31 +72,39 @@ async function setCustomBaseUrl(provider: KimiChatProvider): Promise<void> {
 		},
 	});
 	if (!input) return;
-	await setBaseUrlAndNotify(provider, input.trim(), "custom endpoint");
+	await setApiBaseUrl(input.trim());
+	provider.notifyModelsChanged();
+
+	vscode.window.showInformationMessage(
+		`Kimi: Switched to custom endpoint (${input.trim()})`,
+	);
 }
 
 export function activate(context: vscode.ExtensionContext): void {
 	const provider = new KimiChatProvider();
 
 	context.subscriptions.push(
-		vscode.lm.registerLanguageModelChatProvider("moonshot", provider),
+		vscode.lm.registerLanguageModelChatProvider("kimi", provider),
 		vscode.workspace.onDidChangeConfiguration((event) => {
 			if (
-				event.affectsConfiguration("moonshot") ||
+				event.affectsConfiguration("kimi") ||
 				event.affectsConfiguration(`${CONFIG_SECTION}.${API_BASE_URL_KEY}`)
 			) {
 				provider.notifyModelsChanged();
 			}
 		}),
 		vscode.commands.registerCommand("kimi.testConnection", runConnectionTest),
-		vscode.commands.registerCommand("kimi.setBaseUrl.global", () =>
-			setBaseUrlAndNotify(provider, PRESET_URLS.global, "Global API (kimi.com)"),
+		vscode.commands.registerCommand("kimi.setBaseUrl.kimiCode", () =>
+			setBaseUrlAndNotify(provider, "kimiCode", "Global API (kimi.ai)"),
 		),
-		vscode.commands.registerCommand("kimi.setBaseUrl.china", () =>
-			setBaseUrlAndNotify(provider, PRESET_URLS.china, "China API (kimi.cn)"),
+		vscode.commands.registerCommand("kimi.setBaseUrl.kimiCodeCN", () =>
+			setBaseUrlAndNotify(provider, "kimiCodeCN", "China API (kimi.com)"),
 		),
-		vscode.commands.registerCommand("kimi.setBaseUrl.ai", () =>
-			setBaseUrlAndNotify(provider, PRESET_URLS.ai, "Alternative API (kimi.ai)"),
+		vscode.commands.registerCommand("kimi.setBaseUrl.moonshot", () =>
+			setBaseUrlAndNotify(provider, "moonshot", "Moonshot API (moonshot.ai)"),
+		),
+		vscode.commands.registerCommand("kimi.setBaseUrl.moonshotCN", () =>
+			setBaseUrlAndNotify(provider, "moonshotCN", "Moonshot China API (moonshot.cn)"),
 		),
 		vscode.commands.registerCommand("kimi.setBaseUrl.custom", () =>
 			setCustomBaseUrl(provider),

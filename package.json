@@ -3,9 +3,9 @@
 	"displayName": "Kimi Language Model Provider for Copilot",
 	"description": "Registers Kimi (Moonshot AI) models as VS Code language model providers for Copilot Chat",
 	"version": "0.3.0",
-	"publisher": "DenizhanDaklr",
+	"publisher": "dreamyfishmt",
 	"license": "MIT",
-	"repository": "https://github.com/zelosleone/kimi-lm-copilot-provider",
+	"repository": "https://github.com/dreamyfishmt/kimi-copilot-provider",
 	"icon": "images/icon.png",
 	"engines": {
 		"vscode": "^1.120.0"
@@ -16,7 +16,7 @@
 	],
 	"activationEvents": [
 		"onStartupFinished",
-		"onLanguageModelChatProvider:moonshot"
+		"onLanguageModelChatProvider:kimi"
 	],
 	"enabledApiProposals": [
 		"languageModelThinkingPart"
@@ -29,18 +29,64 @@
 		"configuration": {
 			"title": "Kimi",
 			"properties": {
+				"kimi.endpoint": {
+					"type": "string",
+					"enum": [
+						"kimiCode",
+						"kimiCodeCN",
+						"moonshot",
+						"moonshotCN",
+						"custom"
+					],
+					"enumItemLabels": [
+						"Kimi Code",
+						"Kimi Code CN",
+						"Moonshot (Not yet supported)",
+						"Moonshot CN (Not yet supported)",
+						"Custom"
+					],
+					"default": "kimiCode",
+					"scope": "application",
+					"markdownDescription": "Select an API endpoint. When Custom is selected, the URL from #kimi.apiBaseUrl# is used."
+				},
 				"kimi.apiBaseUrl": {
 					"type": "string",
-					"default": "https://api.kimi.com/coding/v1",
+					"default": "https://api.kimi.ai/coding/v1",
 					"scope": "application",
-					"markdownDescription": "Kimi API base URL. Use `https://api.kimi.com/coding/v1` for global users, `https://api.kimi.cn/coding/v1` for users in China, or `https://api.kimi.ai/coding/v1` as an alternative endpoint. Must end with `/coding/v1`."
+					"markdownDescription": "Custom API base URL. Only used when #kimi.endpoint# is set to Custom. Do not include `/chat/completions`."
+				},
+				"kimi.maxOutputTokens": {
+					"type": "integer",
+					"minimum": 1,
+					"maximum": 65536,
+					"default": 32768,
+					"scope": "application",
+					"markdownDescription": "Maximum output tokens allowed per request by this extension. This budget is reserved from the context window; it is not the model's documented maximum output capability."
+				},
+				"kimi.reasoningEffort": {
+					"type": "string",
+					"enum": [
+						"default",
+						"low",
+						"high",
+						"max"
+					],
+					"enumItemLabels": [
+						"Default",
+						"Low",
+						"High",
+						"Max"
+					],
+					"default": "default",
+					"scope": "application",
+					"markdownDescription": "Reasoning effort for supported Kimi Code models. Model Default omits the parameter and uses the server default. Ignored when thinking is disabled or the model does not support configurable reasoning effort."
 				}
 			}
 		},
 		"languageModelChatProviders": [
 			{
-				"vendor": "moonshot",
-				"displayName": "Moonshot",
+				"vendor": "kimi",
+				"displayName": "Kimi",
 				"configuration": {
 					"type": "object",
 					"properties": {
@@ -63,16 +109,20 @@
 				"title": "Kimi: Test Connection"
 			},
 			{
-				"command": "kimi.setBaseUrl.global",
-				"title": "Kimi: Set API Endpoint to Global (kimi.com)"
+				"command": "kimi.setBaseUrl.kimiCode",
+				"title": "Kimi Code: Set API Endpoint to Global (kimi.ai)"
 			},
 			{
-				"command": "kimi.setBaseUrl.china",
-				"title": "Kimi: Set API Endpoint to China (kimi.cn)"
+				"command": "kimi.setBaseUrl.kimiCodeCN",
+				"title": "Kimi Code: Set API Endpoint to China (kimi.com)"
 			},
 			{
-				"command": "kimi.setBaseUrl.ai",
-				"title": "Kimi: Set API Endpoint to Alternative (kimi.ai)"
+				"command": "kimi.setBaseUrl.moonshot",
+				"title": "Moonshot Platform: Set API Endpoint to Moonshot (moonshot.ai)"
+			},
+			{
+				"command": "kimi.setBaseUrl.moonshotCN",
+				"title": "Moonshot Platform: Set API Endpoint to Moonshot China (moonshot.cn)"
 			},
 			{
 				"command": "kimi.setBaseUrl.custom",
@@ -81,7 +131,7 @@
 		]
 	},
 	"scripts": {
-		"vscode:prepublish": "npm run compile",
+		"vscode:prepublish": "pnpm run compile",
 		"compile": "tsc -p ./",
 		"watch": "tsc -watch -p ./"
 	},
