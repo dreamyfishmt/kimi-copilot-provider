@@ -267,16 +267,16 @@ The [Release VSIX workflow](.github/workflows/release.yml) runs when a release t
 | `vX.Y.Z` | Stable release, marked Latest | `dreamyfishmt-kimi-code-X.Y.Z-stable.vsix` |
 | `nightly-vX.Y.Z` | Prerelease, never marked Latest | `dreamyfishmt-kimi-code-X.Y.Z-nightly.vsix`, marked as a prerelease package |
 
-The tag version must exactly match `package.json`. For example, with the current version `0.5.10`, publish either channel from the commit you want to release:
+The tag version must exactly match `package.json`. For example, with the current version `0.6.0`, publish either channel from the commit you want to release:
 
 ```sh
 # Stable
-git tag v0.5.10
-git push origin v0.5.10
+git tag v0.6.0
+git push origin v0.6.0
 
 # Nightly
-git tag nightly-v0.5.10
-git push origin nightly-v0.5.10
+git tag nightly-v0.6.0
+git push origin nightly-v0.6.0
 ```
 
 Commit the workflow and all intended source changes before creating a tag. Each new release needs a new tag; update `package.json` and `package-lock.json` together when changing the version. The workflow validates the version, installs dependencies with `npm ci`, compiles and runs tests, then packages the extension with a pinned version of `vsce`. A failed check prevents publication. Rerunning a successful tag workflow updates the existing release and replaces its VSIX asset.
