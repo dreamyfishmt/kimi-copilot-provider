@@ -4,7 +4,7 @@ English | [简体中文](README.zh-CN.md)
 
 Use your Kimi Code subscription in VS Code Chat and Agent mode through a custom language model provider. The extension connects directly to the Kimi Code API using your own API key.
 
-Extension ID: `dreamyfishmt.kimi-lm-provider`. This is not an official Kimi or GitHub extension.
+Extension ID: `dreamyfishmt.kimi-code-copilot-provider`. This is not an official Kimi or GitHub extension.
 
 ## Why use this extension?
 
@@ -45,13 +45,13 @@ Kimi Code subscription keys and Kimi Open Platform keys are not interchangeable.
 You can install a prebuilt package directly from [GitHub Releases](https://github.com/dreamyfishmt/kimi-copilot-provider/releases), without building from source.
 
 1. Open the Releases page and choose the newest published release. Nightly builds are marked **Pre-release**; check the release list for the newest nightly rather than relying on GitHub's **Latest** badge, which is reserved for stable releases.
-2. Expand **Assets** and download the `.vsix` file, such as `kimi-lm-provider-X.Y.Z-nightly.vsix`. Choose the VSIX package rather than the source-code ZIP or tarball.
+2. Expand **Assets** and download the `.vsix` file, such as `kimi-code-copilot-provider-X.Y.Z-nightly.vsix`. Choose the VSIX package rather than the source-code ZIP or tarball.
 3. In VS Code, open the Extensions view, click **…**, choose **Install from VSIX…**, and select the downloaded file. Reload the window when prompted. Use the same steps to install a newer VSIX over an existing installation.
 
 ## Quick start and first chat
 
 1. Download and install the release VSIX as described above, or follow **Run from source** below.
-2. Open Settings, search for `@ext:dreamyfishmt.kimi-lm-provider`, and choose **Kimi Code** (overseas) or **Kimi Code CN** (China).
+2. Open Settings, search for `@ext:dreamyfishmt.kimi-code-copilot-provider`, and choose **Kimi Code** (overseas) or **Kimi Code CN** (China).
 3. Open Chat → **Manage Language Models** from the model picker, add **Kimi**, and enter your **Kimi Code subscription API key** from the [console](https://www.kimi.com/code/console). The native provider UI handles the secret; do not add it to user settings or repository files.
 4. Select a Kimi model. If models do not appear, reopen the picker or run **Kimi: Refresh Models**.
 5. Run **Kimi: Diagnose Current Configuration** from the Command Palette and choose the model you intend to use. Review the individual results in the **Kimi** output channel. This sends two small test prompts and consumes account quota.
@@ -76,7 +76,7 @@ The included launch configuration does not automatically compile before launch. 
 
 ## Configure the provider
 
-1. In the development window, open Settings and search for `@ext:dreamyfishmt.kimi-lm-provider`.
+1. In the development window, open Settings and search for `@ext:dreamyfishmt.kimi-code-copilot-provider`.
 2. Choose **Kimi Code** for overseas access or **Kimi Code CN** for China access under **Kimi: Endpoint**.
 3. Open Chat, then **Manage Language Models** from the model picker.
 4. Add the **Kimi** provider and enter your Kimi Code API key. The field is declared as a secret in the provider configuration.
@@ -224,7 +224,7 @@ Chat requests include `model`, `messages`, `stream`, `thinking`, and the output 
 
 Conversation content, attached images, supported text/JSON attachments, and tool results passed by VS Code are sent to the configured endpoint. Images are encoded as base64 `image_url` content. Unsupported binary attachments, including video, are replaced with an omission notice.
 
-Authentication uses `Authorization: Bearer <apiKey>`. The client identifies this extension as `kimi-lm-provider/<extension-version> (VSCode/<vscode-version>; dreamyfishmt.kimi-lm-provider)`. The extension version and ID are read from `package.json`; the VS Code version comes from the running host. `X-Msh-Platform` is `kimi-lm-provider`, and `X-Msh-Version` is the extension version. By default, the extension does not read hostname or OS/device details, generate a device ID, or send `X-Msh-Device-Name`, `X-Msh-Device-Model`, `X-Msh-Device-Id`, or `X-Msh-Os-Version`. Setting `kimi.sendDeviceInfo` to `true` enables these four headers; the random ID is generated on first use and retained only for the loaded module instance. These client identifiers describe this independent provider, not an official GitHub Copilot client. Server acceptance of these identifiers must be verified with a live request.
+Authentication uses `Authorization: Bearer <apiKey>`. The client identifies this extension as `kimi-lm-provider/<extension-version> (VSCode/<vscode-version>; dreamyfishmt.kimi-code-copilot-provider)`. The extension version and ID are read from `package.json`; the VS Code version comes from the running host. `X-Msh-Platform` is `kimi-lm-provider`, and `X-Msh-Version` is the extension version. By default, the extension does not read hostname or OS/device details, generate a device ID, or send `X-Msh-Device-Name`, `X-Msh-Device-Model`, `X-Msh-Device-Id`, or `X-Msh-Os-Version`. Setting `kimi.sendDeviceInfo` to `true` enables these four headers; the random ID is generated on first use and retained only for the loaded module instance. These client identifiers describe this independent provider, not an official GitHub Copilot client. Server acceptance of these identifiers must be verified with a live request.
 
 ## Troubleshooting
 
@@ -264,19 +264,19 @@ The [Release VSIX workflow](.github/workflows/release.yml) runs when a release t
 
 | Tag | GitHub Release | VSIX |
 | --- | --- | --- |
-| `vX.Y.Z` | Stable release, marked Latest | `kimi-lm-provider-X.Y.Z-stable.vsix` |
-| `nightly-vX.Y.Z` | Prerelease, never marked Latest | `kimi-lm-provider-X.Y.Z-nightly.vsix`, marked as a prerelease package |
+| `vX.Y.Z` | Stable release, marked Latest | `kimi-code-copilot-provider-X.Y.Z-stable.vsix` |
+| `nightly-vX.Y.Z` | Prerelease, never marked Latest | `kimi-code-copilot-provider-X.Y.Z-nightly.vsix`, marked as a prerelease package |
 
-The tag version must exactly match `package.json`. For example, with the current version `0.5.5`, publish either channel from the commit you want to release:
+The tag version must exactly match `package.json`. For example, with the current version `0.5.6`, publish either channel from the commit you want to release:
 
 ```sh
 # Stable
-git tag v0.5.5
-git push origin v0.5.5
+git tag v0.5.6
+git push origin v0.5.6
 
 # Nightly
-git tag nightly-v0.5.5
-git push origin nightly-v0.5.5
+git tag nightly-v0.5.6
+git push origin nightly-v0.5.6
 ```
 
 Commit the workflow and all intended source changes before creating a tag. Each new release needs a new tag; update `package.json` and `package-lock.json` together when changing the version. The workflow validates the version, installs dependencies with `npm ci`, compiles and runs tests, then packages the extension with a pinned version of `vsce`. A failed check prevents publication. Rerunning a successful tag workflow updates the existing release and replaces its VSIX asset.
