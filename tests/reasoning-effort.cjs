@@ -31,8 +31,13 @@ test('model picker selection reaches the HTTP request body', async () => {
             const info = toLanguageModelChatInformation(model);
             assert.equal(Boolean(info.configurationSchema), model.supportsReasoningEffort);
             if (info.configurationSchema) {
-                assert.deepEqual(info.configurationSchema.properties.reasoningEffort.enum, ['default', 'low', 'high', 'max']);
-                assert.equal(info.configurationSchema.properties.reasoningEffort.group, 'navigation');
+                const schema = info.configurationSchema.properties.reasoningEffort;
+                assert.deepEqual(schema.enum, ['low', 'high', 'max']);
+                assert.equal(schema.default, 'high');
+                assert.equal(schema.group, 'navigation');
+                // The default must survive Agent Host's supported-level filter.
+                const hostLevels = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+                assert.ok(schema.enum.filter(level => hostLevels.includes(level)).includes(schema.default));
             }
         }
         const token = { isCancellationRequested: false, onCancellationRequested: () => ({ dispose() {} }) };
@@ -43,6 +48,12 @@ test('model picker selection reaches the HTTP request body', async () => {
         for (const effort of ['low', 'high', 'max']) {
             assert.equal((await send({ modelConfiguration: { reasoningEffort: effort } })).reasoning_effort, effort);
         }
+        settings.reasoningEffort = 'low';
+        const pickerDefault = models.find(m => m.id === 'k3-256k').configurationSchema.properties.reasoningEffort.default;
+        assert.equal((await send({ modelConfiguration: { reasoningEffort: pickerDefault } })).reasoning_effort, 'high');
+        settings.reasoningEffort = 'default';
+        assert.equal(Object.hasOwn(await send({}), 'reasoning_effort'), false);
+        settings.reasoningEffort = 'high';
         assert.equal(Object.hasOwn(await send({ modelConfiguration: { reasoningEffort: 'default' } }), 'reasoning_effort'), false);
         assert.equal((await send({})).reasoning_effort, 'high');
         assert.equal((await send({ configuration: { reasoningEffort: 'low' } })).reasoning_effort, 'low');

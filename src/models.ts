@@ -84,10 +84,11 @@ function createReasoningEffortSchema() {
             reasoningEffort: {
                 type: "string",
                 title: "Thinking Effort",
-                enum: ["default", "low", "high", "max"],
-                enumItemLabels: ["Default", "Low", "High", "Max"],
-                default: "default",
-                description: "Reasoning effort. Default uses the server default.",
+                // Agent Host filters out custom values such as "default".
+                enum: ["low", "high", "max"],
+                enumItemLabels: ["Low", "High", "Max"],
+                default: "high",
+                description: "Reasoning effort used for model requests.",
                 group: "navigation",
             },
         },
