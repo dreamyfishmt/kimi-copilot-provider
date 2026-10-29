@@ -22,6 +22,7 @@
 		"onLanguageModelChatProvider:kimi"
 	],
 	"extensionKind": [
+		"workspace",
 		"ui"
 	],
 	"main": "./out/extension.js",

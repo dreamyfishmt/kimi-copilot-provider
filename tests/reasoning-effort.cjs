@@ -34,12 +34,10 @@ test('model picker selection reaches the HTTP request body', async () => {
 			assert.equal(Boolean(info.configurationSchema), model.supportsReasoningEffort);
 			if (info.configurationSchema) {
 				const schema = info.configurationSchema.properties.reasoningEffort;
-				assert.deepEqual(schema.enum, ['low', 'high', 'max']);
-				assert.equal(schema.default, 'high');
+				assert.deepEqual(schema.enum, ['default', 'low', 'high', 'max']);
+				assert.deepEqual(schema.enumItemLabels, ['Auto', 'Low', 'High', 'Max']);
+				assert.equal(schema.default, 'default');
 				assert.equal(schema.group, 'navigation');
-				// The default must survive Agent Host's supported-level filter.
-				const hostLevels = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
-				assert.ok(schema.enum.filter(level => hostLevels.includes(level)).includes(schema.default));
 			}
 		}
 		const token = { isCancellationRequested: false, onCancellationRequested: () => ({ dispose() {} }) };
@@ -52,7 +50,7 @@ test('model picker selection reaches the HTTP request body', async () => {
 		}
 		settings.reasoningEffort = 'low';
 		const pickerDefault = models.find(m => m.id === 'k3-256k').configurationSchema.properties.reasoningEffort.default;
-		assert.equal((await send({ modelConfiguration: { reasoningEffort: pickerDefault } })).reasoning_effort, 'high');
+		assert.equal(Object.hasOwn(await send({ modelConfiguration: { reasoningEffort: pickerDefault } }), 'reasoning_effort'), false);
 		settings.reasoningEffort = 'default';
 		assert.equal(Object.hasOwn(await send({}), 'reasoning_effort'), false);
 		settings.reasoningEffort = 'high';

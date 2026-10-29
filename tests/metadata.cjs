@@ -68,6 +68,24 @@ test('server capabilities, protocol filtering, efforts and safe context budgets'
 	assert.equal(parseModels({data:[{id:'kimi-for-coding-highspeed'}]}, base)[0].supportsReasoningEffort, false);
 });
 
+test('K3.1 Pro models are advertised to Agent mode despite the stale server tool flag', () => {
+	// The Coding API returns supports_tool_use: false for these ids even though tools work.
+	const models = parseModels({ data: [
+		{ id: 'k3.1-pro', supports_tool_use: false, context_length: 1048576 },
+		{ id: 'k3.1-pro-highspeed', supports_tool_use: false, context_length: 1048576 },
+	] }, base);
+	assert.deepEqual(models.map(model => model.capabilities.toolCalling), [true, true]);
+	assert.deepEqual(models.map(model => model.name), ['Kimi K3.1 Pro', 'Kimi K3.1 Pro Highspeed']);
+	assert.deepEqual(models.map(model => model.contextWindow), [1048576, 1048576]);
+	// Other Coding models keep the server flag.
+	assert.equal(parseModels({ data: [{ id: 'k3', supports_tool_use: false }] }, base)[0].capabilities.toolCalling, false);
+	// Outside a Coding endpoint an explicit flag stays authoritative.
+	const custom = parseModels({ data: [{ id: 'k3.1-pro', supports_tool_use: false }] }, 'https://example.com/v1');
+	assert.equal(custom[0].capabilities.toolCalling, false);
+	// Round-tripping the override keeps tool calling enabled after a cache reload.
+	assert.deepEqual(parseModels(serializeModels(models), base), models);
+});
+
 test('catalog persists metadata, isolates accounts and endpoints, retains cache on failure and accepts empty lists', async () => {
 	const storage = memory();
 	let requests = 0;
@@ -128,7 +146,8 @@ test('dynamic models send successfully and use their actual reasoning capabiliti
 	const provider = new KimiChatProvider(memory());
 	const models = await provider.provideLanguageModelChatInformation({modelConfiguration:{apiKey:'key'}}, token);
 	assert.deepEqual(models.map(m => m.id), ['new-model']);
-	assert.equal(models[0].configurationSchema.properties.reasoningEffort.default, 'medium');
+	assert.equal(models[0].configurationSchema.properties.reasoningEffort.default, 'default');
+	assert.equal(models[0].configurationSchema.properties.reasoningEffort.enumItemLabels[0], 'Auto');
 	const send = options => provider.provideLanguageModelChatResponse(models[0], [], options, {report(){}}, token);
 	await send({modelOptions:{reasoningEffort:'medium'}});
 	assert.equal(bodies[0].model, 'new-model');

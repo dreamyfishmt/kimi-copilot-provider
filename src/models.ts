@@ -73,7 +73,31 @@ export const KIMI_MODELS: KimiModelInfo[] = [
 		tooltip: "Kimi Code — requires K3 access",
 		contextWindow: 262144,
 	},
+	{
+		...COMMON_MODEL,
+		id: "k3.1-pro",
+		name: "Kimi K3.1 Pro",
+		version: "k3.1-pro",
+		tooltip: "Kimi Code — requires K3.1 access",
+		contextWindow: 1048576,
+	},
+	{
+		...COMMON_MODEL,
+		id: "k3.1-pro-highspeed",
+		name: "Kimi K3.1 Pro Highspeed",
+		version: "k3.1-pro-highspeed",
+		tooltip: "Kimi Code — requires K3.1 HighSpeed access",
+		contextWindow: 1048576,
+	},
 ];
+
+/**
+ * The Coding API temporarily reports `supports_tool_use: false` for models that do support function calling; without this override they are hidden from Agent mode. Remove an id here once the server reports the capability correctly.
+ */
+const CODING_TOOL_CALLING_OVERRIDES: ReadonlySet<string> = new Set([
+	"k3.1-pro",
+	"k3.1-pro-highspeed",
+]);
 type MoonshotModelPreset = Pick<KimiModelInfo, "name" | "thinkingType" | "reasoningEfforts" | "defaultEffort" | "thinkingParameter" | "requiredToolChoice">;
 
 const K27_CODE: Omit<MoonshotModelPreset, "name"> = {
@@ -115,11 +139,10 @@ function createReasoningEffortSchema(model: KimiModelInfo) {
 			reasoningEffort: {
 				type: "string",
 				title: "Thinking Effort",
-				// Agent Host filters out custom values such as "default".
-				enum: model.reasoningEfforts ?? [],
-				enumItemLabels: (model.reasoningEfforts ?? []).map(value => value[0].toUpperCase() + value.slice(1)),
-				...(model.defaultEffort ? { default: model.defaultEffort } : {}),
-				description: "Reasoning effort used for model requests.",
+				enum: ["default", ...(model.reasoningEfforts ?? [])],
+				enumItemLabels: ["Auto", ...(model.reasoningEfforts ?? []).map(value => value[0].toUpperCase() + value.slice(1))],
+				default: "default",
+				description: "Reasoning effort used for model requests. Auto omits the parameter and uses the server default.",
 				group: "navigation",
 			},
 		},
@@ -167,6 +190,7 @@ export function parseModels(payload: unknown, baseUrl: string): KimiModelInfo[] 
 	if (!Array.isArray(data)) throw new Error("Invalid model list response.");
 	const models = new Map<string, KimiModelInfo>();
 	const moonshot = isMoonshotPlatform(baseUrl);
+	const coding = new URL(baseUrl).pathname.includes("/coding/");
 	for (const item of data) {
 		const raw = record(item);
 		if (!raw || typeof raw.id !== "string" || !raw.id.trim()) throw new Error("Invalid model ID.");
@@ -192,20 +216,23 @@ export function parseModels(payload: unknown, baseUrl: string): KimiModelInfo[] 
 			? [...new Set(rawEfforts.filter((value): value is ReasoningEffort => typeof value === "string" && EFFORTS.includes(value)))] : [];
 		const rawDefault = effortInfo ? effortInfo.default_effort : raw.default_effort ?? preset?.defaultEffort ?? known?.defaultEffort;
 		const defaultEffort = efforts.includes(rawDefault as ReasoningEffort) ? rawDefault as ReasoningEffort : undefined;
+		// Every Open Platform chat model supports function calling; its /models has no flag for it.
+		// The Coding API reports the flag, but it lags behind for some agent models that do support tools.
+		const reportedToolCalling = typeof raw.supports_tool_use === "boolean" ? raw.supports_tool_use : undefined;
+		const toolCalling = (coding && CODING_TOOL_CALLING_OVERRIDES.has(id)) ||
+			(reportedToolCalling ?? (moonshot || known?.capabilities.toolCalling === true));
 		models.set(id, {
 			id, name: typeof raw.display_name === "string" && raw.display_name.trim() ? raw.display_name.trim() : preset?.name ?? known?.name ?? id,
 			family: "kimi", version: id, contextWindow: context!, tooltip: "Kimi · discovered from API",
 			thinking, thinkingType, supportsReasoningEffort: efforts.length > 0, reasoningEfforts: efforts, defaultEffort,
-			requireSseDoneMarker: !new URL(baseUrl).pathname.includes("/coding/"),
+			requireSseDoneMarker: !coding,
 			...(moonshot ? {
 				thinkingParameter: preset?.thinkingParameter ?? false,
 				requiredToolChoice: preset?.requiredToolChoice ?? false,
 			} : {}),
 			capabilities: {
 				imageInput: typeof raw.supports_image_in === "boolean" ? raw.supports_image_in : known?.capabilities.imageInput ?? false,
-				// Every Open Platform chat model supports function calling; its /models has no flag for it.
-				toolCalling: typeof raw.supports_tool_use === "boolean" ? raw.supports_tool_use
-					: moonshot || (known?.capabilities.toolCalling ?? false),
+				toolCalling,
 			},
 		});
 	}

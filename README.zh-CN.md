@@ -101,8 +101,12 @@ Kimi Code 订阅 Key 与 Kimi 开放平台 Key 不能互换。模型与套餐信
 | `kimi-for-coding-highspeed` | Kimi K2.7 Code HighSpeed | 262,144 | 否 |
 | `k3` | Kimi K3 | 1,048,576 | 是 |
 | `k3-256k` | Kimi K3 256K | 262,144 | 是 |
+| `k3.1-pro` | Kimi K3.1 Pro | 1,048,576 | 是 |
+| `k3.1-pro-highspeed` | Kimi K3.1 Pro Highspeed | 1,048,576 | 是 |
 
 这些是扩展侧声明，不是套餐权限检查。`k3` 声明 1M 上下文预算；如果套餐不允许 K3 1M，请选择 `k3-256k`。HighSpeed 和 K3 的访问权限也取决于订阅。
+
+Coding 端点的 `/models` 目前对 K3.1 Pro 系列返回 `supports_tool_use: false`，但这些模型实际支持函数调用。扩展会强制为这两个 ID 开启工具调用，否则 VS Code 会把它们从 Agent 模式中隐藏；不在覆盖列表中的模型仍以服务端标志为准。
 
 输入预算计算方式：
 

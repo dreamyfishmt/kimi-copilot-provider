@@ -101,8 +101,12 @@ The following table describes the built-in fallback, not the current server cata
 | `kimi-for-coding-highspeed` | Kimi K2.7 Code HighSpeed | 262,144 | No |
 | `k3` | Kimi K3 | 1,048,576 | Yes |
 | `k3-256k` | Kimi K3 256K | 262,144 | Yes |
+| `k3.1-pro` | Kimi K3.1 Pro | 1,048,576 | Yes |
+| `k3.1-pro-highspeed` | Kimi K3.1 Pro Highspeed | 1,048,576 | Yes |
 
 These are extension-side declarations, not account entitlement checks. The `k3` entry advertises a 1M context budget; select `k3-256k` if your subscription does not permit K3 1M. HighSpeed and K3 access also depend on your subscription.
+
+The Coding API currently reports `supports_tool_use: false` for the K3.1 Pro models. They do support function calling, so the extension forces tool calling on for those IDs; otherwise VS Code would hide them from Agent mode. Models outside that override list still follow the server flag.
 
 The input budget is calculated as:
 
